@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/abraham-r-bytebandits/dashboard-backend:latest
+    image: ghcr.io/byte-bandits-india/dashboard-backend:latest
     restart: unless-stopped
     env_file: .env.backend
     # MySQL runs on the host, not in Docker. From inside the container the
@@ -31,7 +31,7 @@ services:
       - app
 
   frontend:
-    image: ghcr.io/abraham-r-bytebandits/dashboard-frontend:latest
+    image: ghcr.io/byte-bandits-india/dashboard-frontend:latest
     restart: unless-stopped
     ports:
       - "80:80"
