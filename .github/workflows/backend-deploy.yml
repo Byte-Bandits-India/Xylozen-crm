@@ -1,16 +1,19 @@
-name: Build and Deploy Frontend
+name: Build and Deploy Backend
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'Dashboard-Backend/**'
+      - '.github/workflows/backend-deploy.yml'
 
 permissions:
   contents: read
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/dashboard-frontend
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/dashboard-backend
 
 jobs:
   build-and-push:
@@ -32,10 +35,9 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ./Dashboard-Backend
+          file: ./Dashboard-Backend/Dockerfile
           push: true
-          build-args: |
-            VITE_API_BASE_URL=/api
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
@@ -46,7 +48,20 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Pull image and restart frontend
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync compose config to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "Dashboard-Backend/deploy/docker-compose.yml"
+          target: "/home/ec2-user/dashboard"
+          strip_components: 2
+
+      - name: Pull image and restart backend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -56,7 +71,6 @@ jobs:
             set -e
             cd /home/ec2-user/dashboard
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull frontend
-            docker compose up -d frontend
+            docker compose pull backend phpmyadmin
+            docker compose up -d backend phpmyadmin
             docker image prune -f
-
