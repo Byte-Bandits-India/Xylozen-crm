@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Site` MODIFY `url` VARCHAR(191) NULL;

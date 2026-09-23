@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# Build Output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+# Local SQLite database files (if you ever use SQLite)
+prisma/*.db
+prisma/*.db-journal
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# User Uploads
+uploads/

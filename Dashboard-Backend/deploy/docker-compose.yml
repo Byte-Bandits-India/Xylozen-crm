@@ -1,0 +1,59 @@
+services:
+  backend:
+    image: ghcr.io/abraham-r-bytebandits/dashboard-backend:latest
+    restart: unless-stopped
+    env_file: .env.backend
+    # MySQL runs on the host, not in Docker. From inside the container the
+    # host is reachable at host.docker.internal — set DATABASE_URL in
+    # .env.backend to use that instead of localhost/127.0.0.1.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads_data:/app/uploads
+    expose:
+      - "4000"
+    networks:
+      - app
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: unless-stopped
+    environment:
+      PMA_HOST: host.docker.internal
+      PMA_PORT: 3306
+      PMA_ABSOLUTE_URI: "https://crm.thebytebandits.com/phpmyadmin/"
+      UPLOAD_LIMIT: 64M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "80"
+    networks:
+      - app
+
+  frontend:
+    image: ghcr.io/abraham-r-bytebandits/dashboard-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Domain Caddy should serve/get certs for.
+      SITE_ADDRESS: "crm.thebytebandits.com"
+    volumes:
+
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - phpmyadmin
+    networks:
+      - app
+
+
+networks:
+  app:
+
+volumes:
+  uploads_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,66 @@
+# Local development stack — builds both apps from source (not from GHCR)
+# and runs a throwaway MySQL container so nothing has to be installed on
+# the host. This is separate from Dashboard-Backend/deploy/docker-compose.yml,
+# which is the production compose file used on the server (external MySQL,
+# pre-built GHCR images).
+services:
+  mysql:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dashboard}
+      MYSQL_USER: ${MYSQL_USER:-dashboard}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dashboard}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - app
+
+  backend:
+    build:
+      context: ./Dashboard-Backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-dashboard}:${MYSQL_PASSWORD:-dashboard}@mysql:3306/${MYSQL_DATABASE:-dashboard}
+      PORT: 4000
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "4001:4000"
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: ./dashBoard
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ":80"
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - app
+
+networks:
+  app:
+
+volumes:
+  mysql_data:
+  uploads_data:
