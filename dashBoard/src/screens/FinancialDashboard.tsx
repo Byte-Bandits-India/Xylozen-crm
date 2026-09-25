@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ConfigProvider } from 'antd'
+import { ConfigProvider, theme } from 'antd'
 import 'antd/dist/reset.css'
 import { ChartBarHorizontal } from '@/components/chart/HorizontalBarChart'
 import DashboardTable from '@/components/table/DashboardTable'
@@ -25,16 +25,19 @@ const SummaryCard = ({
     change: string;
     isPositive: boolean;
 }) => (
-    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col h-full">
+    <div className="bg-card text-card-foreground rounded-xl border border-border p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col h-full">
         <div>
-            <p className="text-sm font-medium text-foreground mb-2">{title}</p>
-            <h3 className="text-2xl font-bold text-foreground mb-2">{value}</h3>
+            <p className="text-sm font-medium text-muted-foreground mb-1.5">{title}</p>
+            <h3 className="text-2xl font-bold text-foreground tracking-tight mb-2">{value}</h3>
         </div>
 
-        <div className="flex justify-between mt-4">
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/60">
             <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${isPositive ? 'bg-success-light text-emerald-600' : 'bg-destructive-light text-rose-500'
-                    }`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${
+                    isPositive 
+                        ? 'bg-success-light text-emerald-600 dark:text-emerald-400' 
+                        : 'bg-destructive-light text-destructive'
+                }`}
             >
                 {isPositive ? (
                     <TrendingUp className="h-3 w-3" />
@@ -45,10 +48,10 @@ const SummaryCard = ({
             </span>
             <a
                 href="#"
-                className="text-xs text-blue-600 underline hover:no-underline transition-colors"
+                className="text-xs text-brand-blue hover:text-brand-blue/80 font-medium transition-colors"
                 onClick={(e) => e.preventDefault()}
             >
-                View more details
+                View details
             </a>
         </div>
     </div>
@@ -104,97 +107,99 @@ const FinancialDashboard = () => {
     }, [sidebarOpen])
 
     return (
-        <div className="flex w-full min-h-screen bg-muted">
+        <div className="flex w-full min-h-screen bg-background text-foreground">
             {/* Main Content Area */}
             <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'xl:mr-[250px]' : ''}`}>
-                <div className="space-y-4 relative overflow-x-hidden p-4 md:p-6">
-                    <div>
-                        <div className="flex flex-col px-4 md:px-6 p-4 md:p-6 sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-xl shadow-xs">
-                            <div className="flex items-center justify-center gap-4">
-                                <h1 className="text-[28px] md:text-[32px] font-extrabold text-foreground">
-                                    Expenditure Control Center
-                                </h1>
+                <div className="space-y-6 relative overflow-x-hidden p-4 md:p-6 max-w-[1800px] mx-auto">
+                    {/* Header Banner */}
+                    <div className="flex flex-col px-5 py-4 sm:flex-row sm:items-center justify-between gap-4 bg-card text-card-foreground rounded-xl border border-border shadow-xs">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
+                                Expenditure Control Center
+                            </h1>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <DatePickerWithRange />
+                            <Button
+                                size="sm"
+                                className="h-9 bg-brand-blue text-primary-foreground hover:bg-brand-blue/90 shadow-xs cursor-pointer"
+                                onClick={() => setSidebarOpen((prev) => !prev)}
+                            >
+                                <ThunderboltOutlined className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Overview & Summary Section */}
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                            <div className="lg:col-span-4 bg-card text-card-foreground rounded-xl border border-border p-6 shadow-xs h-full flex flex-col justify-between">
+                                <div className="flex justify-between items-start mb-3">
+                                    <p className="text-sm font-medium text-muted-foreground">Total Expenditure</p>
+                                    {(() => {
+                                        const changeStr = overview?.expenditureChange !== undefined ? `${overview.expenditureChange}%` : "+ 0%";
+                                        const isPositive = !String(changeStr).includes('-');
+                                        return (
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${
+                                                isPositive ? 'bg-success-light text-emerald-600 dark:text-emerald-400' : 'bg-destructive-light text-destructive'
+                                            }`}>
+                                                {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                                {changeStr}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+
+                                <div className="mt-4">
+                                    <h2 className="text-4xl font-extrabold text-foreground tracking-tight">
+                                        ₹{(overview?.totalExpenditure || 0).toLocaleString()}
+                                    </h2>
+                                </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                <DatePickerWithRange />
-                                <Button
-                                    size="sm"
-                                    className="h-9 bg-brand-blue !text-white hover:bg-brand-blue"
-                                    onClick={() => setSidebarOpen((prev) => !prev)}
-                                >
-                                    {sidebarOpen ? <ThunderboltOutlined /> : <ThunderboltOutlined />}
-                                </Button>
+                            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <SummaryCard
+                                    title="Fixed Costs"
+                                    value={`₹${(overview?.fixedCosts || 0).toLocaleString()}`}
+                                    change={overview?.fixedCostsChange !== undefined ? `${overview.fixedCostsChange}%` : "0%"}
+                                    isPositive={!String(overview?.fixedCostsChange || "0").includes('-')}
+                                />
+                                <SummaryCard
+                                    title="Operational Costs"
+                                    value={`₹${(overview?.operationalCosts || 0).toLocaleString()}`}
+                                    change={overview?.operationalCostsChange !== undefined ? `${overview.operationalCostsChange}%` : "0%"}
+                                    isPositive={!String(overview?.operationalCostsChange || "0").includes('-')}
+                                />
+                                <ChartBarHorizontal data={contributions} />
                             </div>
                         </div>
 
-                        <div className="pt-6 space-y-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                <div className="lg:col-span-4 bg-white rounded-xl border border-gray-100 p-6 shadow-sm h-full flex flex-col">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <p className="text-sm text-foreground">Total Expenditure</p>
-                                        {(() => {
-                                            const changeStr = overview?.expenditureChange !== undefined ? `${overview.expenditureChange}%` : "+ 0%";
-                                            const isPositive = !String(changeStr).includes('-');
-                                            return (
-                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${isPositive ? 'bg-success-light text-emerald-600' : 'bg-destructive-light text-rose-500'}`}>
-                                                    {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                                    {changeStr}
-                                                </span>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    <div className="mt-auto">
-                                        <h2 className="text-4xl font-bold text-gray-900 tracking-tight">
-                                            ₹{(overview?.totalExpenditure || 0).toLocaleString()}
-                                        </h2>
-                                    </div>
-                                </div>
-
-                                <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <SummaryCard
-                                        title="Fixed Costs"
-                                        value={`₹${(overview?.fixedCosts || 0).toLocaleString()}`}
-                                        change={overview?.fixedCostsChange !== undefined ? `${overview.fixedCostsChange}%` : "0%"}
-                                        isPositive={!String(overview?.fixedCostsChange || "0").includes('-')}
-                                    />
-                                    <SummaryCard
-                                        title="Operational Costs"
-                                        value={`₹${(overview?.operationalCosts || 0).toLocaleString()}`}
-                                        change={overview?.operationalCostsChange !== undefined ? `${overview.operationalCostsChange}%` : "0%"}
-                                        isPositive={!String(overview?.operationalCostsChange || "0").includes('-')}
-                                    />
-                                    <ChartBarHorizontal data={contributions} />
-                                </div>
+                        {/* Charts Section */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                            <div className="lg:col-span-4">
+                                <SpendBreakdown data={chartDataPayload?.pieChartData as {name: string; value: number; share: string; color: string}[] | undefined} />
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                <div className="lg:col-span-4 space-y-4">
-                                    <SpendBreakdown data={chartDataPayload?.pieChartData as {name: string; value: number; share: string; color: string}[] | undefined} />
-                                </div>
-
-                                <div className="lg:col-span-8 bg-white rounded-xl">
-                                    <TotalExpenseChart data={chartDataPayload?.barChartData as unknown[] | undefined} />
-                                </div>
+                            <div className="lg:col-span-8 bg-card text-card-foreground rounded-xl border border-border shadow-xs overflow-hidden">
+                                <TotalExpenseChart data={chartDataPayload?.barChartData as unknown[] | undefined} />
                             </div>
+                        </div>
 
+                        {/* Table Section */}
+                        <div className="bg-card text-card-foreground rounded-xl border border-border shadow-xs p-4 md:p-5">
                             <ConfigProvider
                                 theme={{
+                                    algorithm: theme.defaultAlgorithm,
                                     components: {
                                         Table: {
                                             fontSize: 14,
-                                            padding: 8,
+                                            padding: 12,
                                             paddingContentVerticalLG: 12,
                                             paddingContentHorizontalLG: 16,
                                         },
-                                        Card: {
-                                            paddingLG: 24,
-                                            paddingSM: 16,
-                                        },
                                         Pagination: {
-                                            colorPrimary: '#2BD0EA',
-                                            colorPrimaryHover: '#1DA1C1',
+                                            colorPrimary: 'var(--brand-blue)',
                                         },
                                     },
                                 }}

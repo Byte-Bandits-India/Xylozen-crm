@@ -211,7 +211,7 @@ export function WorkCard({ item }: WorkCardProps) {
       }}
       onClick={handleCardClick}
       className={cn(
-        'group relative bg-card border-border/80 rounded-xl border p-3.5 shadow-2xs transition-all hover:shadow-md hover:border-brand-blue/40 cursor-grab active:cursor-grabbing flex flex-col justify-between h-[146px]',
+        'group relative bg-white dark:bg-card border border-gray-300 dark:border-gray-700 rounded-lg p-3.5 shadow-2xs transition-all hover:border-gray-400 dark:hover:border-gray-600 hover:shadow-xs cursor-grab active:cursor-grabbing flex flex-col justify-between h-[146px]',
         isDragging && 'opacity-50 ring-2 ring-brand-blue',
       )}
     >

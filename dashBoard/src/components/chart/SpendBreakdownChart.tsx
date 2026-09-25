@@ -26,7 +26,7 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
 
     const TOTAL = data.reduce((sum, d) => sum + d.value, 0);
     return (
-        <Card className="w-full rounded-2xl shadow-sm border border-gray-100 bg-white py-3.5 px-5">
+        <Card className="w-full rounded-xl shadow-xs border border-border bg-card text-card-foreground py-3.5 px-5">
             <CardContent className="p-0 flex flex-col items-center gap-4">
 
                 {/* Donut Chart with center label overlay */}
@@ -48,17 +48,17 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
                             ))}
                         </Pie>
                         <Tooltip
-                            formatter={(value: number) => [`$${value.toLocaleString()}`]}
-                            contentStyle={{ borderRadius: 8, fontSize: 13 }}
+                            formatter={(value: number) => [`₹${value.toLocaleString()}`]}
+                            contentStyle={{ borderRadius: 8, fontSize: 13, background: 'var(--popover)', color: 'var(--popover-foreground)', borderColor: 'var(--border)' }}
                         />
                     </PieChart>
 
                     {/* Absolute center label */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-[22px] font-bold text-gray-900 leading-tight">
-                            ${TOTAL.toLocaleString()}
+                        <span className="text-[22px] font-bold text-foreground leading-tight">
+                            ₹{TOTAL.toLocaleString()}
                         </span>
-                        <span className="text-[12px] text-gray-400 mt-0.5">total spend</span>
+                        <span className="text-[12px] text-muted-foreground mt-0.5">total spend</span>
                     </div>
                 </div>
 
@@ -66,15 +66,15 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
                 <div className="w-full">
                     {/* Header Row */}
                     <div className="flex justify-between mb-2">
-                        <span className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                        <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                             Team
                         </span>
-                        <span className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+                        <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
                             Amount / Share
                         </span>
                     </div>
 
-                    <div className="border-t border-gray-100" />
+                    <div className="border-t border-border" />
 
                     {/* Data Rows */}
                     {data.map((item, i) => (
@@ -86,20 +86,20 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
                                         className="inline-block w-1.5 h-5 rounded-full flex-shrink-0"
                                         style={{ backgroundColor: item.color }}
                                     />
-                                    <span className="text-[15px] text-gray-800">{item.name}</span>
+                                    <span className="text-[14px] text-foreground font-medium">{item.name}</span>
                                 </div>
 
                                 {/* Right: amount + share */}
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[15px] font-semibold text-gray-900">
-                                        ${item.value.toLocaleString()}
+                                    <span className="text-[14px] font-semibold text-foreground">
+                                        ₹{item.value.toLocaleString()}
                                     </span>
-                                    <span className="text-[13px] text-gray-400 w-10 text-right">
+                                    <span className="text-[13px] text-muted-foreground w-10 text-right">
                                         {item.share}%
                                     </span>
                                 </div>
                             </div>
-                            {i < data.length - 1 && <div className="border-t border-gray-100" />}
+                            {i < data.length - 1 && <div className="border-t border-border" />}
                         </div>
                     ))}
                 </div>

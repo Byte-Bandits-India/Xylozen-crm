@@ -57,8 +57,8 @@ export function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'bg-muted/20 flex-1 space-y-3 rounded-xl p-3 border border-border/40 min-h-[500px] transition-colors',
-          isOver && 'bg-brand-blue/5 ring-2 ring-brand-blue/40 border-brand-blue/40',
+          'bg-gray-50/70 dark:bg-gray-900/30 flex-1 space-y-3 rounded-xl p-3 border border-gray-300 dark:border-gray-700 min-h-[520px] transition-colors',
+          isOver && 'bg-brand-blue/5 ring-2 ring-brand-blue/40 border-brand-blue',
         )}
       >
         <SortableContext
@@ -71,7 +71,7 @@ export function KanbanColumn({
         </SortableContext>
 
         {items.length === 0 && (
-          <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center">
+          <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-white/60 dark:bg-gray-900/50 p-4 text-center">
             <span className="text-muted-foreground text-xs font-medium">
               No tasks in this column
             </span>

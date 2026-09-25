@@ -53,7 +53,7 @@ export function ChartBarHorizontal({ data }: { data: ContributionData[] }) {
 
                     return (
                         <div key={index} className="flex items-center gap-2">
-                            <span className="text-sm text-gray-700 font-medium w-20 shrink-0 truncate" title={label}>
+                            <span className="text-sm text-foreground font-medium w-20 shrink-0 truncate" title={label}>
                                 {label}
                             </span>
                             <div
@@ -61,30 +61,30 @@ export function ChartBarHorizontal({ data }: { data: ContributionData[] }) {
                                 onMouseEnter={() => setHoveredIndex(index)}
                                 onMouseLeave={() => setHoveredIndex(null)}
                             >
-                                <div className="h-6 bg-gray-100 rounded-sm overflow-hidden">
+                                <div className="h-6 bg-muted rounded-sm overflow-hidden">
                                     <div
                                         className={`h-full rounded-sm transition-all duration-700 ease-out ${safeColorClass}`}
                                         style={{
                                             width: `${percent}%`,
-                                            ...(safeColorClass ? {} : { backgroundColor: color || '#3b82f6' })
+                                            ...(safeColorClass ? {} : { backgroundColor: color || 'var(--brand-blue)' })
                                         }}
                                     />
                                 </div>
                                 {/* Tooltip */}
                                 {hoveredIndex === index && (
                                     <div
-                                        className="absolute -top-14 bg-white border border-gray-200 text-sm rounded-lg shadow-md px-3 py-2 whitespace-nowrap z-10 pointer-events-none"
+                                        className="absolute -top-14 bg-popover border border-border text-popover-foreground text-sm rounded-lg shadow-md px-3 py-2 whitespace-nowrap z-10 pointer-events-none"
                                         style={{ left: `${percent / 2}%`, transform: 'translateX(-50%)' }}
                                     >
                                         <div className="flex items-center gap-2">
                                             <span
                                                 className="inline-block w-2.5 h-2.5 rounded-[2px] shrink-0"
-                                                style={{ backgroundColor: color }}
+                                                style={{ backgroundColor: color || 'var(--brand-blue)' }}
                                             />
-                                            <span className="text-gray-500">{label}</span>
-                                            <span className="font-semibold text-gray-900 ml-1">{amountStr}</span>
+                                            <span className="text-muted-foreground">{label}</span>
+                                            <span className="font-semibold text-foreground ml-1">{amountStr}</span>
                                         </div>
-                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-200" />
+                                        <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-border" />
                                     </div>
                                 )}
                             </div>
