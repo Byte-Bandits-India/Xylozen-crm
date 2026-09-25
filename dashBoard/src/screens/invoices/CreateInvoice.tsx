@@ -306,7 +306,7 @@ export default function CreateInvoice() {
             onClick={() => createMutation.mutate()}
             className="bg-blue-600 hover:bg-blue-700 text-xs font-semibold cursor-pointer"
           >
-            Create &amp; Issue
+            Create Invoice
           </Button>
         </div>
       </div>
