@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { CheckCircle, FileText, Loader2 } from 'lucide-react';
@@ -22,12 +22,20 @@ import {
   serializeDocument,
 } from './_utils/documentSerializer';
 
+const EMPTY_TEAM_USERS: TeamUser[] = [];
+
 export default function EditInvoice() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const isHydratedRef = useRef(false);
+
+  // Reset hydration flag if invoice id changes
+  useEffect(() => {
+    isHydratedRef.current = false;
+  }, [id]);
 
   // Fetch team users for Signatory and Created By dropdowns
-  const { data: teamUsers = [], isLoading: isLoadingUsers } = useQuery<TeamUser[]>({
+  const { data: teamUsers = EMPTY_TEAM_USERS, isLoading: isLoadingUsers } = useQuery<TeamUser[]>({
     queryKey: ['team-users-invoices'],
     queryFn: async () => {
       try {
@@ -57,7 +65,7 @@ export default function EditInvoice() {
   });
 
   // State: Metadata (strictly 8 inputs)
-  const [metadata, setMetadata] = useState<InvoiceMetadata>({
+  const [metadata, setMetadata] = useState<InvoiceMetadata>(() => ({
     date: dayjs().toISOString(),
     invoiceNumber: '',
     website: DEFAULT_WEBSITE,
@@ -72,7 +80,7 @@ export default function EditInvoice() {
     title: DEFAULT_DOCUMENT_TITLE,
     currency: 'INR',
     status: 'PENDING',
-  });
+  }));
 
   // State: Rich Document Content (Tiptap HTML)
   const [documentHtml, setDocumentHtml] = useState<string>(DEFAULT_ESTIMATE_HTML);
@@ -90,9 +98,10 @@ export default function EditInvoice() {
     enabled: !!id,
   });
 
-  // Hydrate Form State when Invoice data loads
+  // Hydrate Form State when Invoice data loads (once per invoice)
   useEffect(() => {
-    if (!invoice) return;
+    if (!invoice || isHydratedRef.current) return;
+    isHydratedRef.current = true;
 
     const parsedDoc = deserializeDocument(invoice.description);
     const creatorName =
@@ -149,6 +158,26 @@ export default function EditInvoice() {
       );
     }
   }, [invoice, teamUsers]);
+
+  // If signatory signature wasn't in document but user loaded in teamUsers, hydrate signature
+  useEffect(() => {
+    if (!teamUsers.length) return;
+    setMetadata((prev) => {
+      if (prev.signatorySignatureImage) return prev;
+      const sigUser = teamUsers.find(
+        (u) =>
+          u.publicId === prev.signatoryUserPublicId ||
+          u.name === prev.signatoryName
+      );
+      const sigImg =
+        sigUser?.signatureImage ||
+        (sigUser?.publicId
+          ? localStorage.getItem(`user_signature_${sigUser.publicId}`) || undefined
+          : undefined);
+      if (!sigImg || prev.signatorySignatureImage === sigImg) return prev;
+      return { ...prev, signatorySignatureImage: sigImg };
+    });
+  }, [teamUsers]);
 
   // Update Mutation
   const updateMutation = useMutation({

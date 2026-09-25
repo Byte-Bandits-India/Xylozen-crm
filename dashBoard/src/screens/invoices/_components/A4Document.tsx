@@ -79,14 +79,14 @@ export const A4Document: React.FC<A4DocumentProps> = ({
                   crossOrigin="anonymous"
                   className="max-h-12 max-w-44 object-contain"
                 />
-              ) : (
+              ) : metadata.signatoryName ? (
                 <span
                   style={{ fontFamily: "'Brush Script MT', 'Dancing Script', cursive" }}
                   className="text-2xl text-blue-900 tracking-wider font-medium"
                 >
-                  {metadata.signatoryName || 'Hariharan C'}
+                  {metadata.signatoryName}
                 </span>
-              )}
+              ) : null}
             </div>
             <p className="font-bold text-[13px] text-gray-900 mt-1">
               Authorized Signatory

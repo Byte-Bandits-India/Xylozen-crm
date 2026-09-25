@@ -15,7 +15,6 @@ import {
 
   DEFAULT_DOCUMENT_TITLE,
   DEFAULT_ESTIMATE_HTML,
-  DEFAULT_SIGNATORY_NAME,
   DEFAULT_WEBSITE,
   DEFAULT_ADDRESS,
   DEFAULT_MOBILE,
@@ -23,12 +22,15 @@ import {
   serializeDocument,
 } from './_utils/documentSerializer';
 
+const EMPTY_TEAM_USERS: TeamUser[] = [];
+const EMPTY_CLIENTS: ClientData[] = [];
+
 export default function CreateInvoice() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Fetch team users for Signatory and Created By dropdowns
-  const { data: teamUsers = [], isLoading: isLoadingUsers } = useQuery<TeamUser[]>({
+  const { data: teamUsers = EMPTY_TEAM_USERS, isLoading: isLoadingUsers } = useQuery<TeamUser[]>({
     queryKey: ['team-users-invoices'],
     queryFn: async () => {
       try {
@@ -58,7 +60,7 @@ export default function CreateInvoice() {
   });
 
   // Fetch clients
-  const { data: clients = [] } = useQuery<ClientData[]>({
+  const { data: clients = EMPTY_CLIENTS } = useQuery<ClientData[]>({
     queryKey: ['clients-invoices-select'],
     queryFn: async () => {
       const res = await apiClient.get('/clients?page=1&pageSize=100');
@@ -70,9 +72,11 @@ export default function CreateInvoice() {
   const currentUserName =
     [user?.profile?.firstName, user?.profile?.lastName].filter(Boolean).join(' ') ||
     user?.username ||
-    DEFAULT_SIGNATORY_NAME;
+    '';
   const currentUserSig = user?.publicId
-    ? localStorage.getItem(`user_signature_${user.publicId}`) || undefined
+    ? (user?.profile as any)?.signatureImage ||
+      localStorage.getItem(`user_signature_${user.publicId}`) ||
+      undefined
     : undefined;
 
   // Fetch next sequential Invoice ID from backend (order-wise starting from XY0001)
@@ -102,47 +106,99 @@ export default function CreateInvoice() {
   });
 
   // State: Metadata (strictly 8 inputs)
-  const [metadata, setMetadata] = useState<InvoiceMetadata>({
+  const [metadata, setMetadata] = useState<InvoiceMetadata>(() => ({
     date: dayjs().toISOString(),
     invoiceNumber: '',
     website: DEFAULT_WEBSITE,
     address: DEFAULT_ADDRESS,
     mobile: DEFAULT_MOBILE,
     email: DEFAULT_EMAIL,
-    signatoryUserPublicId: user?.publicId || '',
-    signatoryName: currentUserName,
+    signatoryUserPublicId: currentUserSig ? user?.publicId || '' : '',
+    signatoryName: currentUserSig ? currentUserName : '',
     signatorySignatureImage: currentUserSig,
     createdByUserPublicId: user?.publicId || '',
     createdByName: currentUserName,
     title: DEFAULT_DOCUMENT_TITLE,
     currency: 'INR',
     status: 'PENDING',
-  });
+  }));
 
   // Update defaults when user or teamUsers load
   useEffect(() => {
     if (user?.publicId) {
-      const savedSig = localStorage.getItem(`user_signature_${user.publicId}`) || undefined;
-      setMetadata((prev) => ({
-        ...prev,
-        createdByUserPublicId: prev.createdByUserPublicId || user.publicId,
-        createdByName: prev.createdByName || currentUserName,
-        signatoryUserPublicId: prev.signatoryUserPublicId || user.publicId,
-        signatoryName: prev.signatoryName || currentUserName,
-        signatorySignatureImage: prev.signatorySignatureImage || savedSig,
-      }));
+      const currentUserSig =
+        (user?.profile as any)?.signatureImage ||
+        (user?.publicId ? localStorage.getItem(`user_signature_${user.publicId}`) : undefined) ||
+        undefined;
+
+      // Prefer user with uploaded signature image
+      const userWithSig = currentUserSig
+        ? { publicId: user.publicId, name: currentUserName, signatureImage: currentUserSig }
+        : teamUsers.find(
+            (u) =>
+              Boolean(u.signatureImage || (u.publicId ? localStorage.getItem(`user_signature_${u.publicId}`) : false))
+          );
+
+      const sigUserPublicId = userWithSig?.publicId || '';
+      const sigUserName = userWithSig?.name || '';
+      const sigUserImage =
+        userWithSig?.signatureImage ||
+        (userWithSig?.publicId
+          ? localStorage.getItem(`user_signature_${userWithSig.publicId}`) || undefined
+          : undefined);
+
+      setMetadata((prev) => {
+        const nextCreatedBy = prev.createdByUserPublicId || user.publicId;
+        const nextCreatedByName = prev.createdByName || currentUserName;
+
+        // Only retain signatory if it actually has an uploaded signature
+        const prevHasSig =
+          Boolean(prev.signatorySignatureImage) ||
+          (prev.signatoryUserPublicId &&
+            teamUsers.some(
+              (u) =>
+                u.publicId === prev.signatoryUserPublicId &&
+                Boolean(u.signatureImage || localStorage.getItem(`user_signature_${u.publicId}`))
+            ));
+
+        const nextSigId = prevHasSig ? prev.signatoryUserPublicId : sigUserPublicId;
+        const nextSigName = prevHasSig ? prev.signatoryName : sigUserName;
+        const nextSigImg = prevHasSig ? prev.signatorySignatureImage : sigUserImage;
+
+        if (
+          prev.createdByUserPublicId === nextCreatedBy &&
+          prev.createdByName === nextCreatedByName &&
+          prev.signatoryUserPublicId === nextSigId &&
+          prev.signatoryName === nextSigName &&
+          prev.signatorySignatureImage === nextSigImg
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          createdByUserPublicId: nextCreatedBy,
+          createdByName: nextCreatedByName,
+          signatoryUserPublicId: nextSigId,
+          signatoryName: nextSigName,
+          signatorySignatureImage: nextSigImg,
+        };
+      });
     }
-  }, [user, currentUserName]);
+  }, [user?.publicId, currentUserName, teamUsers]);
 
   // Sync next sequential invoice number when loaded
   useEffect(() => {
     if (nextIdData?.nextNumber) {
-      setMetadata((prev) => ({
-        ...prev,
-        invoiceNumber: nextIdData.nextNumber,
-      }));
+      setMetadata((prev) => {
+        if (prev.invoiceNumber === nextIdData.nextNumber) return prev;
+        return {
+          ...prev,
+          invoiceNumber: nextIdData.nextNumber,
+        };
+      });
     }
-  }, [nextIdData]);
+  }, [nextIdData?.nextNumber]);
 
   // State: Rich Document Content (Tiptap HTML)
   const [documentHtml, setDocumentHtml] = useState<string>(DEFAULT_ESTIMATE_HTML);

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { DatePicker, Input, Select } from 'antd';
 import {
   Calendar,
@@ -25,8 +26,34 @@ export const InvoiceMetadataForm = ({
   teamUsers,
   isLoadingUsers = false,
 }: InvoiceMetadataFormProps) => {
+  // Filter team users to strictly those who have uploaded a signature image
+  const signatoryUsers = useMemo(() => {
+    return teamUsers.filter((u) => {
+      return Boolean(
+        u.signatureImage ||
+        (u.publicId ? localStorage.getItem(`user_signature_${u.publicId}`) : false)
+      );
+    });
+  }, [teamUsers]);
+
+  // Memoize Dayjs instance to avoid recreation on every render
+  const dateValue = useMemo(() => {
+    if (!metadata.date) return null;
+    const parsed = dayjs(metadata.date);
+    return parsed.isValid() ? parsed : null;
+  }, [metadata.date]);
+
   // Handle signatory user selection: auto-load name and signature image
-  const handleSelectSignatory = (userPublicId: string) => {
+  const handleSelectSignatory = (userPublicId?: string) => {
+    if (!userPublicId) {
+      onChangeMetadata({
+        signatoryUserPublicId: '',
+        signatoryName: '',
+        signatorySignatureImage: undefined,
+      });
+      return;
+    }
+
     const selectedUser = teamUsers.find((u) => u.publicId === userPublicId);
     if (!selectedUser) return;
 
@@ -71,8 +98,8 @@ export const InvoiceMetadataForm = ({
             Date
           </label>
           <DatePicker
-            value={metadata.date ? dayjs(metadata.date) : dayjs()}
-            onChange={(d) => onChangeMetadata({ date: d ? d.toISOString() : dayjs().toISOString() })}
+            value={dateValue}
+            onChange={(d) => onChangeMetadata({ date: d && d.isValid() ? d.toISOString() : '' })}
             className="w-full"
             format="DD-MM-YYYY"
             allowClear={false}
@@ -126,13 +153,20 @@ export const InvoiceMetadataForm = ({
           </label>
           <Select
             showSearch
+            allowClear
             placeholder="Select Signatory User"
+            notFoundContent="No users with uploaded signature found"
             loading={isLoadingUsers}
-            value={metadata.signatoryUserPublicId || undefined}
+            value={
+              metadata.signatoryUserPublicId &&
+              signatoryUsers.some((u) => u.publicId === metadata.signatoryUserPublicId)
+                ? metadata.signatoryUserPublicId
+                : undefined
+            }
             onChange={handleSelectSignatory}
             optionFilterProp="label"
             className="w-full"
-            options={teamUsers.map((u) => ({
+            options={signatoryUsers.map((u) => ({
               value: u.publicId,
               label: u.name,
             }))}

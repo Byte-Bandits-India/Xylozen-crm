@@ -5,7 +5,7 @@ export const DEFAULT_WEBSITE = 'https://xylozentech.com/';
 export const DEFAULT_ADDRESS = 'Anjali by Vikaan shelters, 122 murugu nagar 6th street velachery chennai 600042';
 export const DEFAULT_MOBILE = '+91 95512 82002';
 export const DEFAULT_EMAIL = 'support@xylozentech.com';
-export const DEFAULT_SIGNATORY_NAME = 'Hariharan C';
+export const DEFAULT_SIGNATORY_NAME = '';
 export const DEFAULT_SIGNATORY_TITLE = 'Authorized Signatory';
 
 export const DEFAULT_ESTIMATE_HTML = `
@@ -98,7 +98,7 @@ export function deserializeDocument(rawDescription?: string | null): InvoiceDocu
           },
           signatory: {
             userPublicId: parsed.signatory?.userPublicId,
-            name: parsed.signatory?.name || parsed.signatoryName || DEFAULT_SIGNATORY_NAME,
+            name: parsed.signatory?.name || parsed.signatoryName || '',
             title: parsed.signatory?.title || parsed.signatoryTitle || DEFAULT_SIGNATORY_TITLE,
             signatureImage: parsed.signatory?.signatureImage,
           },
