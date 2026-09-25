@@ -9,6 +9,7 @@ import {
   Wrench,
   TrendingUp,
   HardDrive,
+  FileText,
   type LucideIcon,
 } from 'lucide-react'
 import type { AppPagePermission, UserRole } from '@/types'
@@ -192,9 +193,9 @@ export const APP_PAGES: PageConfig[] = [
       { path: '/invoices/edit/:id', component: EditInvoice },
     ],
     sidebar: {
-      group: 'Finances',
-      icon: CreditCard,
       title: 'Invoices',
+      icon: FileText,
+      isStandalone: true,
     },
     defaultManagerLevel: 'edit',
   },
