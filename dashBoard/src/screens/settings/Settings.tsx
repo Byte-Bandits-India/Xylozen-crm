@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { message } from 'antd'
+import { FileSignature, Upload, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { userService } from '@/services/userService'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label'
 export default function Settings() {
   const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const signatureInputRef = useRef<HTMLInputElement | null>(null)
 
   // Form states initialized from active authenticated user
   const [firstName, setFirstName] = useState(user?.profile?.firstName || '')
@@ -18,6 +20,7 @@ export default function Settings() {
   const [dateOfBirth, setDateOfBirth] = useState(user?.profile?.dateOfBirth || '')
   const [gender, setGender] = useState(user?.profile?.gender || '')
   const [profileImage, setProfileImage] = useState(user?.profile?.profileImage || '')
+  const [signatureImage, setSignatureImage] = useState<string>('')
 
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
@@ -32,8 +35,43 @@ export default function Settings() {
       setDateOfBirth(user.profile?.dateOfBirth || '')
       setGender(user.profile?.gender || '')
       setProfileImage(user.profile?.profileImage || '')
+      
+      // Load saved signature from local storage
+      const savedSig = localStorage.getItem(`user_signature_${user.publicId}`) || ''
+      setSignatureImage(savedSig)
     }
   }, [user])
+
+  // Handle signature upload
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      message.error('Signature file must be smaller than 2MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string
+      setSignatureImage(base64)
+      if (user?.publicId) {
+        localStorage.setItem(`user_signature_${user.publicId}`, base64)
+      }
+      message.success('Authorized signature image updated!')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Handle signature remove
+  const handleRemoveSignature = () => {
+    setSignatureImage('')
+    if (user?.publicId) {
+      localStorage.removeItem(`user_signature_${user.publicId}`)
+    }
+    message.info('Signature removed.')
+  }
 
   const initials = `${firstName?.[0] || user?.profile?.firstName?.[0] || ''}${
     lastName?.[0] || user?.profile?.lastName?.[0] || ''
@@ -412,6 +450,71 @@ export default function Settings() {
             <div className="text-[11px] text-muted-foreground pt-1">
               User ID: <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[10px] select-all">{user?.publicId || user?.id}</code>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Authorized Digital Signature Card */}
+      <div className="bg-card border-border rounded-xl border p-6 shadow-xs space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileSignature className="h-4 w-4 text-brand-blue" />
+            Authorized Digital Signature
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Upload your official signature image to automatically sign estimates, quotations, and invoices.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-lg border border-border bg-muted/20">
+          <div className="h-24 w-56 rounded-lg border-2 border-dashed border-border bg-white flex items-center justify-center overflow-hidden p-2">
+            {signatureImage ? (
+              <img
+                src={signatureImage}
+                alt="Authorized Signature"
+                className="max-h-full max-w-full object-contain"
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground italic">No signature uploaded</span>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <input
+              ref={signatureInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={handleSignatureUpload}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => signatureInputRef.current?.click()}
+                className="text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload Signature Image
+              </Button>
+
+              {signatureImage && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleRemoveSignature}
+                  className="text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove
+                </Button>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Recommended: PNG format with transparent background, max 2MB.
+            </p>
           </div>
         </div>
       </div>

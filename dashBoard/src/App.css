@@ -190,3 +190,78 @@ html, body, #root {
 .ant-table-wrapper .ant-table-tbody > tr:hover > td {
   background-color: #f9fafb !important;
 }
+
+/* Tiptap / ProseMirror Custom Tables & Interactive Column Resizer */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100% !important;
+  margin: 1.25rem 0;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  min-width: 50px;
+  border: 1px solid #111827;
+  padding: 8px 10px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.ProseMirror table th {
+  background-color: #dce8fd;
+  font-weight: 700;
+  text-align: left;
+}
+
+/* Interactive Column Resize Handle on column borders */
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 5px;
+  background-color: #2563eb;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize !important;
+}
+
+/* Selected cell styling */
+.ProseMirror table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(37, 99, 235, 0.15);
+  pointer-events: none;
+}
+
+/* Utility to hide scrollbars while maintaining scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Print optimization: ensure high fidelity color and letterhead printing */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

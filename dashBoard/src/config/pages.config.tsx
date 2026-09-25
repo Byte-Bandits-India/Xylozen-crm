@@ -21,6 +21,8 @@ import UserAccess from '@/screens/admin/UserAccess'
 import SiteManagement from '@/screens/admin/SiteManagement'
 import ClientsList from '@/screens/clients/ClientsList'
 import InvoicesList from '@/screens/invoices/InvoicesList'
+import CreateInvoice from '@/screens/invoices/CreateInvoice'
+import EditInvoice from '@/screens/invoices/EditInvoice'
 import ImageConverter from '@/screens/ImageConverter'
 import ContactMessagesList from '@/screens/admin/ContactMessagesList'
 import StatusBoard from '@/screens/work/StatusBoard'
@@ -185,6 +187,10 @@ export const APP_PAGES: PageConfig[] = [
     category: 'Financial',
     description: 'Billing records, client invoicing, and payment receipts',
     component: InvoicesList,
+    aliases: [
+      { path: '/invoices/create', component: CreateInvoice },
+      { path: '/invoices/edit/:id', component: EditInvoice },
+    ],
     sidebar: {
       group: 'Finances',
       icon: CreditCard,

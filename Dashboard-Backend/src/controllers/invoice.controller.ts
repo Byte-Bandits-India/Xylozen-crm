@@ -7,12 +7,43 @@ import { parsePagination, parseSorting } from "../utils/pagination";
 
 // ─── HELPERS ─────────────────────────────────────────────
 
-function generateInvoiceNumber(): string {
-  const now = new Date();
-  const datePart = now.toISOString().slice(0, 10).replace(/-/g, "");
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `INV-${datePart}-${rand}`;
+export async function generateNextInvoiceNumber(): Promise<string> {
+  const invoices = await prisma.invoice.findMany({
+    select: { invoiceNumber: true },
+  });
+
+  let maxNum = 0;
+  for (const inv of invoices) {
+    if (!inv.invoiceNumber) continue;
+    const match = inv.invoiceNumber.match(/^XY[-_]?(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+
+  let nextNum = maxNum + 1;
+  let candidate = `XY${String(nextNum).padStart(4, "0")}`;
+
+  const existingSet = new Set(invoices.map((i) => i.invoiceNumber));
+  while (existingSet.has(candidate)) {
+    nextNum++;
+    candidate = `XY${String(nextNum).padStart(4, "0")}`;
+  }
+
+  return candidate;
 }
+
+export const getNextInvoiceNumberHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const nextNumber = await generateNextInvoiceNumber();
+    return sendSuccess(res, { nextNumber }, "Next invoice number generated");
+  } catch (err: any) {
+    return sendError(res, err.message);
+  }
+};
 
 interface ItemInput {
   itemName: string;
@@ -40,6 +71,7 @@ function computeItemTotal(item: ItemInput) {
 export const createInvoice = async (req: AuthRequest, res: Response) => {
   try {
     const {
+      invoiceNumber: customInvoiceNumber,
       title, featureProject, description, currency,
       issuedDate, dueDate, items, clientPublicId,
     } = req.body;
@@ -66,7 +98,15 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
     });
 
     const totalAmount = subtotal + totalTax - totalDiscount;
-    const invoiceNumber = generateInvoiceNumber();
+    let invoiceNumber = customInvoiceNumber ? String(customInvoiceNumber).trim() : "";
+    if (!invoiceNumber) {
+      invoiceNumber = await generateNextInvoiceNumber();
+    } else {
+      const existingInv = await prisma.invoice.findUnique({ where: { invoiceNumber } });
+      if (existingInv) {
+        invoiceNumber = await generateNextInvoiceNumber();
+      }
+    }
 
     const invoice = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.create({
@@ -137,7 +177,11 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
     );
 
     const where: any = {};
-    if (status && typeof status === "string") where.status = status;
+    if (status && typeof status === "string") {
+      where.status = status;
+    } else {
+      where.status = { not: "CANCELLED" };
+    }
     if (search && typeof search === "string") {
       where.OR = [
         { invoiceNumber: { contains: search } },
@@ -153,6 +197,20 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
         take,
         include: {
           clients: { include: { client: { select: { publicId: true, name: true } } } },
+          createdBy: {
+            select: {
+              publicId: true,
+              username: true,
+              email: true,
+              profile: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  profileImage: true,
+                },
+              },
+            },
+          },
           _count: { select: { items: true, payments: true } },
         },
       }),
@@ -193,6 +251,7 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
   try {
     const { publicId } = req.params;
     const {
+      invoiceNumber,
       title, featureProject, description, currency,
       issuedDate, dueDate, status, items, clientPublicId,
     } = req.body;
@@ -208,6 +267,7 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
         title, featureProject, description, currency, status,
       };
 
+      if (invoiceNumber) updateData.invoiceNumber = String(invoiceNumber).trim();
       if (issuedDate) updateData.issuedDate = new Date(issuedDate);
       if (dueDate) updateData.dueDate = new Date(dueDate);
 
@@ -299,9 +359,8 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
       return sendError(res, "Cannot delete a paid invoice", 400);
     }
 
-    await prisma.invoice.update({
+    await prisma.invoice.delete({
       where: { publicId },
-      data: { status: "CANCELLED" },
     });
 
     await prisma.activityAuditLog.create({

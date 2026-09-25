@@ -11,6 +11,7 @@ const invoiceItemSchema = z.object({
 
 export const createInvoiceSchema = z
   .object({
+    invoiceNumber: z.string().optional(),
     title: z.string().optional(),
     featureProject: z.string().optional(),
     description: z.string().optional(),
@@ -28,6 +29,7 @@ export const createInvoiceSchema = z
   });
 
 export const updateInvoiceSchema = z.object({
+  invoiceNumber: z.string().optional(),
   title: z.string().optional(),
   featureProject: z.string().optional(),
   description: z.string().optional(),

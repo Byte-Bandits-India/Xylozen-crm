@@ -7,7 +7,7 @@
     "start": "node dist/server.js",
     "prisma": "prisma",
     "reset:prod": "ts-node prisma/reset-production.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "ts-node-dev --respawn --transpile-only --poll --interval 1000 --watch prisma,src src/server.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

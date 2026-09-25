@@ -1,0 +1,13 @@
+FROM node:20-bookworm-slim
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+COPY docker-entrypoint.dev.sh ./docker-entrypoint.dev.sh
+RUN chmod +x ./docker-entrypoint.dev.sh
+
+EXPOSE 80 5173
+ENTRYPOINT ["./docker-entrypoint.dev.sh"]

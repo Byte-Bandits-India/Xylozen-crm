@@ -1,450 +1,329 @@
-import { useState } from "react";
+import { useState, useMemo, useRef } from 'react';
+import { Table, Button, Input, Modal, message, Alert } from 'antd';
+import { Plus, Search, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/lib/apiClient';
+import { queryClient } from '@/lib/queryClient';
+import { useAuth } from '@/context/AuthContext';
+import { TableLayout } from '@/components/layout/TableLayout';
+import { getInvoicesColumns } from './_components/InvoicesColumns';
+import { InvoicePreview } from './_components/InvoicePreview';
+import { A4Document } from './_components/A4Document';
+import type { InvoiceData, InvoiceMetadata } from './types';
 import {
-  Table,
-  Button,
-  Modal,
-  Form,
-  Input,
-  Select,
-  DatePicker,
-  message,
-  InputNumber,
-  Row,
-  Col,
-  Card,
-} from "antd";
-import { PlusOutlined, MinusCircleOutlined } from "@ant-design/icons";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
-import { queryClient } from "@/lib/queryClient";
-import { useAuth } from "@/context/AuthContext";
-import { TableLayout } from "@/components/layout/TableLayout";
-import { getInvoicesColumns } from "./_components/InvoicesColumns";
-import dayjs from "dayjs";
-import type { AxiosError } from "axios";
-
-const { Option } = Select;
-const { TextArea } = Input;
-
-type InvoiceData = {
-  publicId: string;
-  title: string;
-  clientPublicId?: string;
-  issuedDate?: string;
-  dueDate?: string;
-  status?: string;
-  currency?: string;
-  description?: string;
-  items?: Array<{
-    itemName: string;
-    quantity: number;
-    unitPrice: number;
-    taxPercent?: number;
-  }>;
-};
-
-type ClientData = {
-  publicId: string;
-  name: string;
-  companyName?: string;
-};
+  deserializeDocument,
+  DEFAULT_WEBSITE,
+  DEFAULT_ADDRESS,
+  DEFAULT_MOBILE,
+  DEFAULT_EMAIL,
+} from './_utils/documentSerializer';
+import { generateInvoicePdf } from './_utils/invoicePdfGenerator';
 
 export default function InvoicesList() {
+  const navigate = useNavigate();
   const { isAdmin, isSuperAdmin } = useAuth();
-  const [isInvoiceModalVisible, setIsInvoiceModalVisible] = useState(false);
-  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
-  const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(
-    null,
-  );
-  const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null);
-  const [invoiceForm] = Form.useForm();
-  const [paymentForm] = Form.useForm();
+  // Allow all active team members to create and edit invoices, admins can delete
+  const canEdit = true;
+  const canDelete = isSuperAdmin || isAdmin;
 
-  const canEdit = isAdmin || isSuperAdmin;
-  const canDelete = isSuperAdmin;
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: invoices = [], isLoading } = useQuery<InvoiceData[]>({
-    queryKey: ["invoices"],
+  // Preview modal state
+  const [previewInvoice, setPreviewInvoice] = useState<InvoiceData | null>(null);
+
+  // Hidden print element for direct list downloads
+  const [downloadingInvoice, setDownloadingInvoice] = useState<InvoiceData | null>(null);
+  const hiddenDownloadRef = useRef<HTMLDivElement>(null);
+
+  // Query Invoices
+  const {
+    data: invoices = [],
+    isLoading,
+    refetch,
+    isError,
+    error,
+  } = useQuery<InvoiceData[]>({
+    queryKey: ['invoices'],
     queryFn: async () => {
-      const res = await apiClient.get("/invoices?page=1&pageSize=100");
-      return res.data.data || res.data || [];
-    },
-  });
-
-  const { data: clients = [] } = useQuery<ClientData[]>({
-    queryKey: ["clients-invoices"],
-    queryFn: async () => {
-      const res = await apiClient.get("/clients?page=1&pageSize=100");
-      return res.data.data || res.data || [];
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (publicId: string) =>
-      await apiClient.delete(`/invoices/${publicId}`),
-    onSuccess: () => {
-      message.success("Invoice deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-    },
-    onError: (error: AxiosError<{ message?: string }>) =>
-      message.error(
-        error.response?.data?.message || "Failed to delete invoice",
-      ),
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: async (values: Record<string, unknown>) => {
-      const payload = {
-        ...values,
-        issuedDate: values.issuedDate
-          ? (values.issuedDate as dayjs.Dayjs).toISOString()
-          : undefined,
-        dueDate: values.dueDate
-          ? (values.dueDate as dayjs.Dayjs).toISOString()
-          : undefined,
-      };
-      if (editingInvoice) {
-        await apiClient.put(`/invoices/${editingInvoice.publicId}`, payload);
-      } else {
-        await apiClient.post("/invoices", payload);
+      try {
+        const res = await apiClient.get('/invoices?page=1&pageSize=100');
+        const raw = res.data?.data || res.data || [];
+        if (Array.isArray(raw)) return raw;
+        if (raw && Array.isArray((raw as any).invoices)) return (raw as any).invoices;
+        if (raw && Array.isArray((raw as any).items)) return (raw as any).items;
+        return [];
+      } catch (err: any) {
+        console.error('Failed to fetch invoices:', err);
+        throw err;
       }
     },
+  });
+
+  // Delete Mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (publicId: string) => {
+      await apiClient.delete(`/invoices/${publicId}`);
+    },
     onSuccess: () => {
-      message.success(
-        editingInvoice
-          ? "Invoice updated successfully!"
-          : "Invoice created successfully!",
+      message.success('Invoice deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      refetch();
+    },
+    onError: (err: any) => {
+      message.error(err.response?.data?.message || 'Failed to delete invoice');
+    },
+  });
+
+  // Direct PDF Download from List
+  const handleDirectDownload = async (record: InvoiceData) => {
+    try {
+      message.loading({ content: `Generating PDF for ${record.invoiceNumber}...`, key: 'list-pdf' });
+      setDownloadingInvoice(record);
+
+      // Wait a tick for hidden DOM to render
+      setTimeout(async () => {
+        if (!hiddenDownloadRef.current) {
+          message.error({ content: 'Failed to locate document for export', key: 'list-pdf' });
+          setDownloadingInvoice(null);
+          return;
+        }
+
+        const fileName = `${record.invoiceNumber || 'Invoice'}.pdf`;
+
+        await generateInvoicePdf({
+          element: hiddenDownloadRef.current,
+          fileName,
+        });
+
+        message.success({ content: 'PDF downloaded successfully!', key: 'list-pdf' });
+        setDownloadingInvoice(null);
+      }, 250);
+    } catch (err: any) {
+      console.error('Download error:', err);
+      message.error({ content: err?.message ? `Failed to download PDF: ${err.message}` : 'Failed to download PDF', key: 'list-pdf' });
+      setDownloadingInvoice(null);
+    }
+  };
+
+  // Filtered Invoices
+  const filteredInvoices = useMemo(() => {
+    if (!Array.isArray(invoices)) return [];
+    return invoices.filter((inv) => {
+      if (!inv) return false;
+      const doc = deserializeDocument(inv.description);
+      const creatorName =
+        [inv.createdBy?.profile?.firstName, inv.createdBy?.profile?.lastName].filter(Boolean).join(' ') ||
+        inv.createdBy?.username ||
+        '';
+      const signatoryName = doc?.signatory?.name || '';
+      const website = doc?.companyDetails?.website || '';
+      const invNum = inv.invoiceNumber || '';
+
+      const term = searchTerm.toLowerCase().trim();
+      if (!term) return true;
+
+      return (
+        invNum.toLowerCase().includes(term) ||
+        creatorName.toLowerCase().includes(term) ||
+        signatoryName.toLowerCase().includes(term) ||
+        website.toLowerCase().includes(term)
       );
-      setIsInvoiceModalVisible(false);
-      invoiceForm.resetFields();
-      setEditingInvoice(null);
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-    },
-    onError: (error: AxiosError<{ message?: string }>) =>
-      message.error(error.response?.data?.message || "Failed to save invoice"),
-  });
-
-  const paymentMutation = useMutation({
-    mutationFn: async (values: Record<string, unknown>) => {
-      const payload = {
-        ...values,
-        paidAt: values.paidAt
-          ? (values.paidAt as dayjs.Dayjs).toISOString()
-          : new Date().toISOString(),
-      };
-      await apiClient.post(`/invoices/${paymentInvoiceId}/payments`, payload);
-    },
-    onSuccess: () => {
-      message.success("Payment recorded successfully!");
-      setIsPaymentModalVisible(false);
-      paymentForm.resetFields();
-      setPaymentInvoiceId(null);
-      queryClient.invalidateQueries({ queryKey: ["invoices"] });
-    },
-    onError: (error: AxiosError<{ message?: string }>) =>
-      message.error(
-        error.response?.data?.message || "Failed to record payment",
-      ),
-  });
-
-  const openEditModal = (invoice: InvoiceData) => {
-    setEditingInvoice(invoice);
-    invoiceForm.setFieldsValue({
-      ...invoice,
-      issuedDate: invoice.issuedDate ? dayjs(invoice.issuedDate) : null,
-      dueDate: invoice.dueDate ? dayjs(invoice.dueDate) : null,
     });
-    setIsInvoiceModalVisible(true);
-  };
-
-  const openPaymentModal = (publicId: string) => {
-    setPaymentInvoiceId(publicId);
-    setIsPaymentModalVisible(true);
-  };
+  }, [invoices, searchTerm]);
 
   const columns = getInvoicesColumns({
-    clients,
     canEdit,
     canDelete,
-    onEdit: openEditModal,
+    onPreview: (inv) => setPreviewInvoice(inv),
+    onEdit: (inv) => navigate(`/invoices/edit/${inv.publicId}`),
     onDelete: (publicId) => deleteMutation.mutate(publicId),
-    onPayment: openPaymentModal,
+    onDownloadPdf: (inv) => handleDirectDownload(inv),
   });
 
+  // Prepare metadata for modal preview
+  const previewDocData = useMemo(() => {
+    if (!previewInvoice) return null;
+    const doc = deserializeDocument(previewInvoice.description);
+
+    const metadata: InvoiceMetadata = {
+      date: previewInvoice.issuedDate,
+      invoiceNumber: previewInvoice.invoiceNumber,
+      website: doc.companyDetails?.website || DEFAULT_WEBSITE,
+      address: doc.companyDetails?.address || DEFAULT_ADDRESS,
+      mobile: doc.companyDetails?.mobile || DEFAULT_MOBILE,
+      email: doc.companyDetails?.email || DEFAULT_EMAIL,
+      signatoryUserPublicId: doc.signatory?.userPublicId || '',
+      signatoryName: doc.signatory?.name || 'Hariharan C',
+      signatorySignatureImage: doc.signatory?.signatureImage,
+      createdByUserPublicId: previewInvoice.createdByPublicId || doc.createdByUserPublicId || '',
+      title: previewInvoice.title || doc.documentTitle || '',
+      clientPublicId: '',
+      currency: (previewInvoice.currency as any) || 'INR',
+      status: previewInvoice.status as any,
+    };
+
+    return { metadata, documentHtml: doc.documentHtml };
+  }, [previewInvoice]);
+
+  // Prepare metadata for direct list download
+  const downloadDocData = useMemo(() => {
+    if (!downloadingInvoice) return null;
+    const doc = deserializeDocument(downloadingInvoice.description);
+
+    const metadata: InvoiceMetadata = {
+      date: downloadingInvoice.issuedDate,
+      invoiceNumber: downloadingInvoice.invoiceNumber,
+      website: doc.companyDetails?.website || DEFAULT_WEBSITE,
+      address: doc.companyDetails?.address || DEFAULT_ADDRESS,
+      mobile: doc.companyDetails?.mobile || DEFAULT_MOBILE,
+      email: doc.companyDetails?.email || DEFAULT_EMAIL,
+      signatoryUserPublicId: doc.signatory?.userPublicId || '',
+      signatoryName: doc.signatory?.name || 'Hariharan C',
+      signatorySignatureImage: doc.signatory?.signatureImage,
+      createdByUserPublicId: downloadingInvoice.createdByPublicId || doc.createdByUserPublicId || '',
+      title: downloadingInvoice.title || doc.documentTitle || '',
+      clientPublicId: '',
+      currency: (downloadingInvoice.currency as any) || 'INR',
+      status: downloadingInvoice.status as any,
+    };
+
+    return { metadata, documentHtml: doc.documentHtml };
+  }, [downloadingInvoice]);
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen w-full">
+    <div className="p-4 md:p-6 bg-slate-50 min-h-screen w-full flex flex-col gap-6">
+
+      {/* Error alert if fetch failed */}
+      {isError && (
+        <Alert
+          message="Failed to load invoices"
+          description={(error as any)?.response?.data?.message || (error as any)?.message || 'Could not connect to invoices service.'}
+          type="error"
+          showIcon
+          action={
+            <Button size="small" type="primary" danger onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+          className="rounded-xl shadow-2xs"
+        />
+      )}
+
+      {/* Main Table Layout */}
       <TableLayout
-        title="Invoices"
+        title="Invoices & Quotations"
         actions={
-          canEdit && (
+          <div className="flex items-center gap-2">
             <Button
               type="primary"
-              icon={<PlusOutlined />}
+              icon={<Plus className="h-4 w-4" />}
               onClick={() => {
-                setEditingInvoice(null);
-                invoiceForm.resetFields();
-                setIsInvoiceModalVisible(true);
+                queryClient.invalidateQueries({ queryKey: ['next-invoice-number'] });
+                navigate('/invoices/create');
               }}
+              className="bg-blue-600 hover:bg-blue-700 text-xs font-semibold cursor-pointer"
             >
               Create Invoice
             </Button>
-          )
+          </div>
         }
       >
+        {/* Filter Bar */}
+        <div className="p-4 border-b border-gray-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex flex-1 items-center gap-2 w-full sm:w-auto max-w-md">
+            <Input
+              prefix={<Search className="h-3.5 w-3.5 text-gray-400" />}
+              placeholder="Search by Invoice ID, creator, or signatory..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              allowClear
+              className="text-xs"
+            />
+          </div>
+        </div>
+
+        {/* Invoices Data Table */}
         <Table
-          dataSource={invoices}
+          dataSource={filteredInvoices}
           columns={columns}
-          rowKey="publicId"
+          rowKey={(record) => record.publicId || String(record.id || record.invoiceNumber || Math.random())}
           loading={isLoading}
-          pagination={{ pageSize: 10 }}
+          locale={{
+            emptyText: (
+              <div className="py-14 flex flex-col items-center justify-center text-gray-400">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-full mb-3">
+                  <FileText className="h-8 w-8" />
+                </div>
+                <h4 className="text-sm font-semibold text-gray-800">No invoices or estimates yet</h4>
+                <p className="text-xs text-gray-400 mt-1 max-w-sm text-center">
+                  {searchTerm
+                    ? 'No documents match your search criteria. Try a different search keyword.'
+                    : 'Create your first professional invoice with our Word-style editor and 300 DPI PDF letterhead.'}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    type="primary"
+                    icon={<Plus className="h-3.5 w-3.5" />}
+                    onClick={() => navigate('/invoices/create')}
+                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-xs font-medium cursor-pointer"
+                  >
+                    Create First Invoice
+                  </Button>
+                )}
+              </div>
+            ),
+          }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '25', '50'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} documents`,
+          }}
+          scroll={{ x: 'max-content' }}
+          className="overflow-x-auto"
         />
       </TableLayout>
 
-      {/* Invoice Creation/Edit Modal */}
+      {/* Full Preview Modal */}
       <Modal
-        title={editingInvoice ? "Edit Invoice" : "Create New Invoice"}
-        open={isInvoiceModalVisible}
-        onCancel={() => setIsInvoiceModalVisible(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-gray-900">Document Preview</span>
+            <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+              {previewInvoice?.invoiceNumber}
+            </span>
+          </div>
+        }
+        open={!!previewInvoice}
+        onCancel={() => setPreviewInvoice(null)}
         footer={null}
-        width={800}
+        width={920}
         destroyOnClose
       >
-        <Form
-          layout="vertical"
-          form={invoiceForm}
-          onFinish={(values) => saveMutation.mutate(values)}
-          className="mt-4"
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="title"
-                label="Invoice Title"
-                rules={[{ required: true }]}
-              >
-                <Input placeholder="Website Development" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="clientPublicId"
-                label="Client"
-                rules={[{ required: true }]}
-              >
-                <Select
-                  placeholder="Select Client"
-                  showSearch
-                  optionFilterProp="children"
-                >
-                  {clients.map((c) => (
-                    <Option key={c.publicId} value={c.publicId}>
-                      {c.name} ({c.companyName})
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="currency" label="Currency" initialValue="INR">
-                <Select>
-                  <Option value="INR">INR</Option>
-                  <Option value="USD">USD</Option>
-                  <Option value="EUR">EUR</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="issuedDate"
-                label="Issue Date"
-                rules={[{ required: true }]}
-              >
-                <DatePicker className="w-full" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="dueDate"
-                label="Due Date"
-                rules={[{ required: true }]}
-              >
-                <DatePicker className="w-full" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item name="description" label="Description">
-            <TextArea rows={2} placeholder="Project details..." />
-          </Form.Item>
-
-          {/* Dynamic Line Items */}
-          <Card size="small" title="Line Items" className="mb-4">
-            <Form.List name="items" initialValue={[{}]}>
-              {(fields, { add, remove }) => (
-                <>
-                  {fields.map(({ key, name, ...restField }) => (
-                    <Row gutter={8} key={key} className="items-end mb-2">
-                      <Col span={8}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, "itemName"]}
-                          label={key === 0 ? "Item Name" : ""}
-                          rules={[{ required: true }]}
-                        >
-                          <Input placeholder="Service" />
-                        </Form.Item>
-                      </Col>
-                      <Col span={4}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, "quantity"]}
-                          label={key === 0 ? "Qty" : ""}
-                          rules={[{ required: true }]}
-                          initialValue={1}
-                        >
-                          <InputNumber className="w-full" min={1} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={5}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, "unitPrice"]}
-                          label={key === 0 ? "Unit Price" : ""}
-                          rules={[{ required: true }]}
-                        >
-                          <InputNumber className="w-full" min={0} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={5}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, "taxPercent"]}
-                          label={key === 0 ? "Tax %" : ""}
-                          initialValue={0}
-                        >
-                          <InputNumber className="w-full" min={0} max={100} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={2}>
-                        <Button
-                          type="text"
-                          danger
-                          icon={<MinusCircleOutlined />}
-                          onClick={() => remove(name)}
-                          className={key === 0 ? "mt-7" : ""}
-                        />
-                      </Col>
-                    </Row>
-                  ))}
-                  <Form.Item>
-                    <Button
-                      type="dashed"
-                      onClick={() => add()}
-                      block
-                      icon={<PlusOutlined />}
-                    >
-                      Add Line Item
-                    </Button>
-                  </Form.Item>
-                </>
-              )}
-            </Form.List>
-          </Card>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button onClick={() => setIsInvoiceModalVisible(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={saveMutation.isPending}
-            >
-              {editingInvoice ? "Save Changes" : "Create Invoice"}
-            </Button>
+        {previewDocData && (
+          <div className="h-[75vh] mt-3">
+            <InvoicePreview
+              metadata={previewDocData.metadata}
+              documentHtml={previewDocData.documentHtml}
+              className="h-full"
+            />
           </div>
-        </Form>
+        )}
       </Modal>
 
-      {/* Payment Modal */}
-      <Modal
-        title="Record Payment"
-        open={isPaymentModalVisible}
-        onCancel={() => setIsPaymentModalVisible(false)}
-        footer={null}
-        destroyOnClose
-      >
-        <Form
-          layout="vertical"
-          form={paymentForm}
-          onFinish={(values) => paymentMutation.mutate(values)}
-          className="mt-4"
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="amount"
-                label="Amount Captured"
-                rules={[{ required: true }]}
-              >
-                <InputNumber className="w-full" min={1} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="paymentMethod"
-                label="Payment Method"
-                rules={[{ required: true }]}
-                initialValue="BANK_TRANSFER"
-              >
-                <Select>
-                  <Option value="BANK_TRANSFER">Bank Transfer</Option>
-                  <Option value="CASH">Cash</Option>
-                  <Option value="CARD">Card</Option>
-                  <Option value="UPI">UPI</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="referenceNo" label="Reference No / UTR">
-                <Input placeholder="TXN-1234..." />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="paidAt"
-                label="Payment Date"
-                initialValue={dayjs()}
-              >
-                <DatePicker className="w-full" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item name="notes" label="Notes">
-            <TextArea rows={2} placeholder="Partial payment for..." />
-          </Form.Item>
-
-          <div className="flex justify-end gap-2 mt-4">
-            <Button onClick={() => setIsPaymentModalVisible(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={paymentMutation.isPending}
-            >
-              Record Payment
-            </Button>
+      {/* Hidden container for direct list-to-PDF downloads */}
+      {downloadDocData && (
+        <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -100 }}>
+          <div ref={hiddenDownloadRef}>
+            <A4Document
+              metadata={downloadDocData.metadata}
+              documentHtml={downloadDocData.documentHtml}
+            />
           </div>
-        </Form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 }

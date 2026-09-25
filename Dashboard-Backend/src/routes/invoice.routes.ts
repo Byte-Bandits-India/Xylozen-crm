@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createInvoice,
   getInvoices,
+  getNextInvoiceNumberHandler,
   getInvoiceById,
   updateInvoice,
   deleteInvoice,
@@ -19,10 +20,11 @@ import {
 const router = Router();
 
 router.post("/", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(createInvoiceSchema), createInvoice);
+router.get("/next-number", authMiddleware, getNextInvoiceNumberHandler);
 router.get("/", authMiddleware, getInvoices);
 router.get("/:publicId", authMiddleware, getInvoiceById);
 router.put("/:publicId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(updateInvoiceSchema), updateInvoice);
-router.delete("/:publicId", authMiddleware, authorize(["SUPER_ADMIN"]), deleteInvoice);
+router.delete("/:publicId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), deleteInvoice);
 router.post("/:publicId/payments", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(recordPaymentSchema), recordPayment);
 router.get("/:publicId/payments", authMiddleware, getInvoicePayments);
 
