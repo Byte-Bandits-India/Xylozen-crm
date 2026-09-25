@@ -21,7 +21,7 @@ services:
     environment:
       PMA_HOST: host.docker.internal
       PMA_PORT: 3306
-      PMA_ABSOLUTE_URI: "https://crm.thebytebandits.com/phpmyadmin/"
+      PMA_ABSOLUTE_URI: "https://crm.xylozentech.com/phpmyadmin/"
       UPLOAD_LIMIT: 64M
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -38,7 +38,7 @@ services:
       - "443:443"
     environment:
       # Domain Caddy should serve/get certs for.
-      SITE_ADDRESS: "crm.thebytebandits.com"
+      SITE_ADDRESS: "crm.xylozentech.com"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data

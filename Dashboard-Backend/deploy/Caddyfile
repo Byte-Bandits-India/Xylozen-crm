@@ -1,4 +1,4 @@
-{$SITE_ADDRESS:crm.thebytebandits.com} {
+{$SITE_ADDRESS:crm.xylozentech.com} {
 	encode gzip
 
 	# Backend API
