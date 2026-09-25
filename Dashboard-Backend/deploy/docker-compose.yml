@@ -30,8 +30,8 @@ services:
     networks:
       - app
 
-  frontend:
-    image: ghcr.io/byte-bandits-india/dashboard-frontend:latest
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
     ports:
       - "80:80"
@@ -40,7 +40,7 @@ services:
       # Domain Caddy should serve/get certs for.
       SITE_ADDRESS: "crm.thebytebandits.com"
     volumes:
-
+      - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

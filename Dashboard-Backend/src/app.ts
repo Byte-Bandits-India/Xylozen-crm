@@ -48,6 +48,8 @@ const allowedOrigins = [
   "https://crm.thebytebandits.com",
   "http://crm.thebytebandits.com",
   "https://thebytebandits.com",
+  "https://testcrm.xylozentech.com",
+  "http://testcrm.xylozentech.com",
   "https://abc-testig.duckdns.org",
   "http://abc-testig.duckdns.org",
 ];
@@ -67,7 +69,11 @@ app.use(
         !origin ||
         allowedOrigins.includes(origin) ||
         allowedOrigins.includes("*") ||
-        (typeof origin === "string" && (origin.includes("thebytebandits.com") || origin.includes("abc-testig.duckdns.org")))
+        (typeof origin === "string" &&
+          (origin.includes("thebytebandits.com") ||
+            origin.includes("xylozentech.com") ||
+            origin.endsWith(".vercel.app") ||
+            origin.includes("abc-testig.duckdns.org")))
       ) {
         callback(null, true);
       } else {

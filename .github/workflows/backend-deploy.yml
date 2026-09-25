@@ -52,17 +52,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync compose config to server
+      - name: Sync compose config and Caddyfile to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "Dashboard-Backend/deploy/docker-compose.yml"
+          source: "Dashboard-Backend/deploy/docker-compose.yml,Dashboard-Backend/deploy/Caddyfile"
           target: "/home/ec2-user/dashboard"
           strip_components: 2
 
-      - name: Pull image and restart backend
+      - name: Pull image and restart backend and proxy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -72,6 +72,6 @@ jobs:
             set -e
             cd /home/ec2-user/dashboard
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull backend phpmyadmin
-            docker compose up -d backend phpmyadmin
+            docker compose pull backend phpmyadmin caddy
+            docker compose up -d --remove-orphans backend phpmyadmin caddy
             docker image prune -f
