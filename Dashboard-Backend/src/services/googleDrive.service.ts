@@ -125,6 +125,7 @@ class GoogleDriveService {
       pageSize: 100,
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
+      corpora: "allDrives",
     });
 
     const files = res.data.files || [];
