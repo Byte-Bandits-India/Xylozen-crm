@@ -32,8 +32,12 @@ class GoogleDriveService {
 
   private init() {
     try {
-      const email = process.env.GOOGLE_DRIVE_CLIENT_EMAIL;
-      let privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY;
+      const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+      const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN;
+
+      const email = process.env.GOOGLE_DRIVE_CLIENT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+      let privateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY || process.env.GOOGLE_PRIVATE_KEY;
       const keyFilePath = process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_DRIVE_KEY_FILE;
 
       if (privateKey) {
@@ -42,12 +46,18 @@ class GoogleDriveService {
 
       let auth: any = null;
 
-      if (email && privateKey) {
+      if (clientId && clientSecret && refreshToken) {
+        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        auth = oauth2Client;
+        console.log("✅ Google Drive API initialized successfully with OAuth 2.0 (User Quota)");
+      } else if (email && privateKey) {
         auth = new google.auth.JWT({
           email,
           key: privateKey,
           scopes: ["https://www.googleapis.com/auth/drive"],
         });
+        console.log("✅ Google Drive API initialized successfully with Service Account JWT");
       } else if (keyFilePath) {
         auth = new google.auth.GoogleAuth({
           keyFile: keyFilePath,
@@ -58,7 +68,7 @@ class GoogleDriveService {
       if (auth) {
         this.driveClient = google.drive({ version: "v3", auth });
         this.isConfigured = true;
-        console.log("✅ Google Drive API initialized successfully with Root Folder:", this.rootFolderId);
+        console.log("✅ Google Drive Root Folder:", this.rootFolderId);
       } else {
         console.warn("⚠️ Google Drive credentials not provided.");
       }
