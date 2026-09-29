@@ -47,3 +47,19 @@ testcrm.xylozentech.com {
 		reverse_proxy frontend-test:80
 	}
 }
+
+# ==========================================
+# MAIN WEBSITE: xylozentech.com
+# ==========================================
+xylozentech.com, www.xylozentech.com {
+	encode gzip zstd
+
+	reverse_proxy xylozen-app:3000
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
