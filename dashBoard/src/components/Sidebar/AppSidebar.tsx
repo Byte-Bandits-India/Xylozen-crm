@@ -53,7 +53,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold text-white">ByteBandits Portal</span>
+            <span className="text-sm font-semibold text-white">Xylozen Portal</span>
             <span className="text-xs text-white/70">{roleDisplay}</span>
           </div>
         </div>

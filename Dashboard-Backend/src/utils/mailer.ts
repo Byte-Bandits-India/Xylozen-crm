@@ -18,47 +18,9 @@ export const sendOTPEmail = async (
   to: string,
   otp: string
 ): Promise<boolean> => {
-  try {
-    await transporter.sendMail({
-      from: `"Byte-Bandits Support" <${config.email.from || config.email.user}>`,
-      to,
-      subject: "OTP for ZIA Herbal Pro",
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f6fff0;">
-          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-            
-            <div style="background-color: #364A28; padding: 20px; color: #ffffff; text-align: center;">
-              <h2 style="margin: 0;">Verify Your Email</h2>
-            </div>
-
-            <div style="padding: 30px; text-align: center;">
-              <p style="font-size: 16px; color: #333333;">Your OTP code is:</p>
-
-              <div style="margin: 20px 0;">
-                <span style="display: inline-block; padding: 10px 20px; background-color: #364A28; color: #ffffff; font-size: 24px; border-radius: 5px; letter-spacing: 4px;">
-                  ${otp}
-                </span>
-              </div>
-
-              <p style="font-size: 14px; color: #777777;">
-                Valid for 10 minutes. Do not share with anyone.
-              </p>
-            </div>
-
-            <div style="background-color: #f0f0f0; padding: 20px; text-align: center; font-size: 12px; color: #999999;">
-              © ${new Date().getFullYear()} ZIA Herbal Pro. All rights reserved.
-            </div>
-
-          </div>
-        </div>
-      `,
-    });
-
-    return true;
-  } catch (error) {
-    console.error("Email error:", error);
-    return false;
-  }
+  // OTP emails disabled per configuration
+  console.log(`[Mailer] OTP email skipped for ${to} (Generated OTP: ${otp})`);
+  return true;
 };
 
 export const sendCredentialsEmail = async (
@@ -68,32 +30,32 @@ export const sendCredentialsEmail = async (
 ): Promise<boolean> => {
   try {
     await transporter.sendMail({
-      from: `"Byte-Bandits Support" <${config.email.from || config.email.user}>`,
+      from: `"Xylozen Support" <${config.email.from || config.email.user}>`,
       to,
-      subject: "Your Account Credentials - ZIA Herbal Pro",
+      subject: "Your Account Credentials - Xylozen CRM",
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f6fff0;">
-          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f8fafc;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
             
-            <div style="background-color: #364A28; padding: 20px; color: #ffffff; text-align: center;">
-              <h2 style="margin: 0;">Account Created</h2>
+            <div style="background-color: #0f172a; padding: 20px; color: #ffffff; text-align: center;">
+              <h2 style="margin: 0; font-size: 20px;">Account Created</h2>
             </div>
 
             <div style="padding: 30px;">
               <p style="font-size: 16px; color: #333333;">Your account has been created. Use the following credentials to log in:</p>
 
-              <div style="margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 5px;">
-                <p style="margin: 5px 0;"><strong>Username:</strong> ${username}</p>
-                <p style="margin: 5px 0;"><strong>Password:</strong> ${password}</p>
+              <div style="margin: 20px 0; padding: 16px; background-color: #f1f5f9; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <p style="margin: 6px 0; color: #1e293b;"><strong>Username:</strong> ${username}</p>
+                <p style="margin: 6px 0; color: #1e293b;"><strong>Password:</strong> ${password}</p>
               </div>
 
-              <p style="font-size: 14px; color: #777777;">
+              <p style="font-size: 14px; color: #64748b;">
                 Please change your password after your first login.
               </p>
             </div>
 
-            <div style="background-color: #f0f0f0; padding: 20px; text-align: center; font-size: 12px; color: #999999;">
-              © ${new Date().getFullYear()} ZIA Herbal Pro. All rights reserved.
+            <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b;">
+              © ${new Date().getFullYear()} Xylozen Technologies. All rights reserved.
             </div>
 
           </div>
@@ -286,10 +248,10 @@ export const sendAssignmentNotificationEmail = async (
         <tr>
           <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center;">
             <p style="font-size: 12px; color: #64748b; margin: 0 0 4px 0;">
-              This is an automated notification from the Byte-Bandits Work Management Dashboard.
+              This is an automated notification from the Xylozen Work Management Dashboard.
             </p>
             <p style="font-size: 11px; color: #94a3b8; margin: 0;">
-              © ${new Date().getFullYear()} Byte-Bandits. All rights reserved.
+              © ${new Date().getFullYear()} Xylozen Technologies. All rights reserved.
             </p>
           </td>
         </tr>
@@ -299,7 +261,7 @@ export const sendAssignmentNotificationEmail = async (
   `;
 
   try {
-    const fromAddress = `"Byte-Bandits Work Management" <${config.email.from || config.email.user}>`;
+    const fromAddress = `"Xylozen Work Management" <${config.email.from || config.email.user}>`;
     await transporter.sendMail({
       from: fromAddress,
       to,
