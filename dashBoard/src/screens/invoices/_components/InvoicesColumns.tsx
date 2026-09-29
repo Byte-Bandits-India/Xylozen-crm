@@ -11,6 +11,7 @@ import {
 import dayjs from 'dayjs';
 import type { InvoiceData } from '../types';
 import { deserializeDocument } from '../_utils/documentSerializer';
+import { autoPaginateHtml } from '../_utils/contentPaginator';
 
 interface GetInvoicesColumnsParams {
   canEdit: boolean;
@@ -37,11 +38,18 @@ export function getInvoicesColumns({
       width: 220,
       render: (_, record) => {
         const idText = record?.invoiceNumber || 'XY0000';
+        const doc = deserializeDocument(record?.description);
+        const pageCount = autoPaginateHtml(doc.pages || [doc.documentHtml || '']).length;
         return (
-          <div className="inline-flex items-center">
+          <div className="inline-flex items-center gap-2">
             <span className="font-mono font-bold text-xs text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs whitespace-nowrap tracking-wide select-all">
               {idText}
             </span>
+            {pageCount > 1 && (
+              <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs whitespace-nowrap">
+                {pageCount} Pages
+              </span>
+            )}
           </div>
         );
       },

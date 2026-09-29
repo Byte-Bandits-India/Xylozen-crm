@@ -1,4 +1,4 @@
-{$SITE_ADDRESS:localhost} {
+:80 {
 	encode gzip
 
 	handle /api/* {
@@ -9,16 +9,11 @@
 		reverse_proxy backend:4000
 	}
 
-	# phpMyAdmin subpath routing
-	redir /phpmyadmin /phpmyadmin/
-	handle_path /phpmyadmin/* {
-		reverse_proxy phpmyadmin:80
-	}
-
 	handle {
 		root * /srv
 		try_files {path} /index.html
 		file_server
 	}
 }
+
 

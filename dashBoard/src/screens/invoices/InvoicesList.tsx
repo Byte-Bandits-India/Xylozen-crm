@@ -19,6 +19,7 @@ import {
   DEFAULT_EMAIL,
 } from './_utils/documentSerializer';
 import { generateInvoicePdf } from './_utils/invoicePdfGenerator';
+import { autoPaginateHtml } from './_utils/contentPaginator';
 
 export default function InvoicesList() {
   const navigate = useNavigate();
@@ -164,7 +165,12 @@ export default function InvoicesList() {
       status: previewInvoice.status as any,
     };
 
-    return { metadata, documentHtml: doc.documentHtml };
+    const pages =
+      Array.isArray(doc.pages) && doc.pages.length > 0
+        ? doc.pages
+        : [doc.documentHtml || ''];
+
+    return { metadata, pages, documentHtml: doc.documentHtml };
   }, [previewInvoice]);
 
   // Prepare metadata for direct list download
@@ -189,7 +195,12 @@ export default function InvoicesList() {
       status: downloadingInvoice.status as any,
     };
 
-    return { metadata, documentHtml: doc.documentHtml };
+    const pages =
+      Array.isArray(doc.pages) && doc.pages.length > 0
+        ? doc.pages
+        : [doc.documentHtml || ''];
+
+    return { metadata, pages, documentHtml: doc.documentHtml };
   }, [downloadingInvoice]);
 
   return (
@@ -306,6 +317,7 @@ export default function InvoicesList() {
           <div className="h-[75vh] mt-3">
             <InvoicePreview
               metadata={previewDocData.metadata}
+              pages={previewDocData.pages}
               documentHtml={previewDocData.documentHtml}
               className="h-full"
             />
@@ -316,11 +328,17 @@ export default function InvoicesList() {
       {/* Hidden container for direct list-to-PDF downloads */}
       {downloadDocData && (
         <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -100 }}>
-          <div ref={hiddenDownloadRef}>
-            <A4Document
-              metadata={downloadDocData.metadata}
-              documentHtml={downloadDocData.documentHtml}
-            />
+          <div ref={hiddenDownloadRef} className="flex flex-col gap-8">
+            {autoPaginateHtml(downloadDocData.pages).map((pageHtml, index, all) => (
+              <A4Document
+                key={index}
+                metadata={downloadDocData.metadata}
+                documentHtml={pageHtml}
+                pageNumber={index + 1}
+                totalPages={all.length}
+                showSignatory={index === all.length - 1}
+              />
+            ))}
           </div>
         </div>
       )}

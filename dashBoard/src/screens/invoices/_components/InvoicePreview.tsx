@@ -1,14 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { Download, Printer, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { Button, message, Tooltip } from 'antd';
 import { A4Document } from './A4Document';
 import type { InvoiceMetadata, LineItem, ClientData } from '../types';
 import { generateInvoicePdf, printInvoiceDocument } from '../_utils/invoicePdfGenerator';
+import { autoPaginateHtml } from '../_utils/contentPaginator';
 import { cn } from '@/lib/utils';
 
 interface InvoicePreviewProps {
   metadata: InvoiceMetadata;
-  documentHtml: string;
+  documentHtml?: string;
+  pages?: string[];
+  activePageIndex?: number;
+  onSelectPage?: (index: number) => void;
   items?: LineItem[];
   client?: ClientData;
   className?: string;
@@ -17,6 +21,9 @@ interface InvoicePreviewProps {
 export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   metadata,
   documentHtml,
+  pages,
+  activePageIndex,
+  onSelectPage,
   items,
   client,
   className,
@@ -24,6 +31,14 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   const [zoom, setZoom] = useState<number>(0.65); // default comfortable scaling for 40% column
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const documentRef = useRef<HTMLDivElement>(null);
+
+  const effectivePages = useMemo(() => {
+    const raw = pages && pages.length > 0 ? pages : [documentHtml || ''];
+    return autoPaginateHtml(raw);
+  }, [pages, documentHtml]);
+
+  const totalPages = effectivePages.length;
+  const totalCanvasHeight = totalPages * 1123 + (totalPages - 1) * 32 + totalPages * 28;
 
   const handleDownloadPdf = async () => {
     if (!documentRef.current) return;
@@ -56,7 +71,9 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
       <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 select-none">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-800">Preview</span>
-          <span className="text-[11px] text-gray-400 font-normal">A4 Letterhead</span>
+          <span className="text-[11px] text-gray-400 font-normal">
+            A4 Letterhead ({totalPages} {totalPages === 1 ? 'Page' : 'Pages'})
+          </span>
         </div>
 
         {/* Zoom & Action Controls */}
@@ -129,16 +146,54 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             transform: `scale(${zoom})`,
             transformOrigin: 'top center',
             transition: 'transform 0.15s ease-out',
-            marginBottom: `${(1123 * zoom) - 1123 + 40}px`,
+            marginBottom: `${(totalCanvasHeight * zoom) - totalCanvasHeight + 40}px`,
           }}
         >
-          <div ref={documentRef}>
-            <A4Document
-              metadata={metadata}
-              documentHtml={documentHtml}
-              items={items}
-              client={client}
-            />
+          <div ref={documentRef} className="flex flex-col gap-8 pb-8">
+            {effectivePages.map((pageHtml, index) => {
+              const isSelected = activePageIndex === index;
+              return (
+                <div key={index} className="flex flex-col items-center">
+                  {/* Page Indicator Tag above sheet */}
+                  <div className="w-[794px] flex items-center justify-between pb-1.5 px-1 select-none">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-gray-700 bg-white/80 backdrop-blur-xs px-2 py-0.5 rounded shadow-2xs border border-gray-200">
+                        Page {index + 1} of {totalPages}
+                      </span>
+                      {isSelected && (
+                        <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                          Active in Editor
+                        </span>
+                      )}
+                    </div>
+                    {onSelectPage && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectPage(index)}
+                        className={cn(
+                          'text-[11px] px-2 py-0.5 rounded cursor-pointer transition-colors',
+                          isSelected
+                            ? 'text-blue-700 font-semibold'
+                            : 'text-gray-500 hover:text-gray-900 bg-white/80 hover:bg-white border border-gray-200'
+                        )}
+                      >
+                        {isSelected ? '● Editing' : 'Click to Edit Page'}
+                      </button>
+                    )}
+                  </div>
+
+                  <A4Document
+                    metadata={metadata}
+                    documentHtml={pageHtml}
+                    pageNumber={index + 1}
+                    totalPages={totalPages}
+                    showSignatory={index === totalPages - 1}
+                    items={items}
+                    client={client}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

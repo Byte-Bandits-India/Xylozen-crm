@@ -21,6 +21,7 @@ import {
   DEFAULT_EMAIL,
   serializeDocument,
 } from './_utils/documentSerializer';
+import { autoPaginateHtml } from './_utils/contentPaginator';
 
 const EMPTY_TEAM_USERS: TeamUser[] = [];
 const EMPTY_CLIENTS: ClientData[] = [];
@@ -200,8 +201,57 @@ export default function CreateInvoice() {
     }
   }, [nextIdData?.nextNumber]);
 
-  // State: Rich Document Content (Tiptap HTML)
-  const [documentHtml, setDocumentHtml] = useState<string>(DEFAULT_ESTIMATE_HTML);
+  // State: Rich Document Content (Array of Pages for multi-page documents)
+  const [pages, setPages] = useState<string[]>([DEFAULT_ESTIMATE_HTML]);
+  const [activePageIndex, setActivePageIndex] = useState<number>(0);
+
+  // Multi-page handlers
+  const handlePageChange = (index: number, newHtml: string) => {
+    setPages((prev) => {
+      const next = [...prev];
+      next[index] = newHtml;
+      return next;
+    });
+  };
+
+  const handleAddPage = () => {
+    const newPageContent = `<h2><strong>Terms &amp; Deliverables</strong></h2>\n<p>Enter additional scope, deliverables, or commercial terms here...</p>`;
+    setPages((prev) => {
+      const next = [...prev, newPageContent];
+      setActivePageIndex(next.length - 1);
+      return next;
+    });
+    message.success(`Page ${pages.length + 1} added`);
+  };
+
+  const handleDeletePage = (index: number) => {
+    if (pages.length <= 1) return;
+    setPages((prev) => prev.filter((_, i) => i !== index));
+    setActivePageIndex((prev) => (prev >= index ? Math.max(0, prev - 1) : prev));
+    message.success('Page deleted');
+  };
+
+  const handleDuplicatePage = (index: number) => {
+    const pageToDuplicate = pages[index] || '';
+    setPages((prev) => {
+      const next = [...prev];
+      next.splice(index + 1, 0, pageToDuplicate);
+      return next;
+    });
+    setActivePageIndex(index + 1);
+    message.success(`Page ${index + 1} duplicated`);
+  };
+
+  const handleMovePage = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= pages.length) return;
+    setPages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+    setActivePageIndex(toIndex);
+  };
 
   // State: Default Financial Line Items for Backend Compatibility
   const [items] = useState<LineItem[]>([
@@ -235,10 +285,12 @@ export default function CreateInvoice() {
               },
             ];
 
+      const paginatedPages = autoPaginateHtml(pages);
       const serializedDoc = serializeDocument({
         documentFormat: 'tiptap-v2',
         documentTitle: metadata.title || DEFAULT_DOCUMENT_TITLE,
-        documentHtml,
+        documentHtml: paginatedPages.join('\n<!-- page-break -->\n'),
+        pages: paginatedPages,
         companyDetails: {
           website: metadata.website,
           address: metadata.address,
@@ -335,8 +387,14 @@ export default function CreateInvoice() {
               </span>
             </div>
             <DocumentEditor
-              contentHtml={documentHtml}
-              onChangeHtml={(html) => setDocumentHtml(html)}
+              pages={pages}
+              activePageIndex={activePageIndex}
+              onPageChange={handlePageChange}
+              onSelectPage={setActivePageIndex}
+              onAddPage={handleAddPage}
+              onDeletePage={handleDeletePage}
+              onDuplicatePage={handleDuplicatePage}
+              onMovePage={handleMovePage}
             />
           </div>
         </div>
@@ -345,7 +403,9 @@ export default function CreateInvoice() {
         <div className="xl:col-span-5 sticky top-4 h-[calc(100vh-6rem)]">
           <InvoicePreview
             metadata={metadata}
-            documentHtml={documentHtml}
+            pages={pages}
+            activePageIndex={activePageIndex}
+            onSelectPage={setActivePageIndex}
             className="h-full"
           />
         </div>

@@ -21,6 +21,7 @@ import {
   Trash2,
   Combine,
   ChevronDown,
+  SeparatorHorizontal,
 } from 'lucide-react';
 import { Dropdown, Popover, InputNumber, Checkbox, Button } from 'antd';
 import type { MenuProps } from 'antd';
@@ -440,6 +441,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, className 
           className="p-1.5 rounded hover:bg-gray-100 text-gray-700 transition-colors"
         >
           <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Insert Page Break (Forces subsequent content to next A4 page)"
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertContent('<hr class="page-break" data-page-break="true" />')
+              .run()
+          }
+          className="p-1.5 rounded hover:bg-gray-100 text-blue-600 hover:text-blue-700 transition-colors"
+        >
+          <SeparatorHorizontal className="h-3.5 w-3.5" />
         </button>
       </div>
 

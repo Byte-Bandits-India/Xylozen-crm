@@ -1,20 +1,55 @@
 services:
-  backend:
-    image: ghcr.io/byte-bandits-india/dashboard-backend:latest
+  # ==========================================
+  # PRODUCTION SERVICES (crm.xylozentech.com)
+  # ==========================================
+  backend-prod:
+    image: ghcr.io/byte-bandits-india/dashboard-backend:prod-latest
     restart: unless-stopped
-    env_file: .env.backend
-    # MySQL runs on the host, not in Docker. From inside the container the
-    # host is reachable at host.docker.internal — set DATABASE_URL in
-    # .env.backend to use that instead of localhost/127.0.0.1.
+    env_file: .env.backend.prod
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - uploads_data:/app/uploads
+      - uploads_prod_data:/app/uploads
     expose:
       - "4000"
     networks:
       - app
 
+  frontend-prod:
+    image: ghcr.io/byte-bandits-india/dashboard-frontend:prod-latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - app
+
+  # ==========================================
+  # TEST SERVICES (testcrm.xylozentech.com)
+  # ==========================================
+  backend-test:
+    image: ghcr.io/byte-bandits-india/dashboard-backend:test-latest
+    restart: unless-stopped
+    env_file: .env.backend.test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads_test_data:/app/uploads
+    expose:
+      - "4000"
+    networks:
+      - app
+
+  frontend-test:
+    image: ghcr.io/byte-bandits-india/dashboard-frontend:test-latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - app
+
+  # ==========================================
+  # SHARED GATEWAY & DATABASE MANAGEMENT
+  # ==========================================
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     restart: unless-stopped
@@ -36,24 +71,18 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      # Domain Caddy should serve/get certs for.
-      SITE_ADDRESS: "crm.xylozentech.com"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    depends_on:
-      - backend
-      - phpmyadmin
     networks:
       - app
-
 
 networks:
   app:
 
 volumes:
-  uploads_data:
+  uploads_prod_data:
+  uploads_test_data:
   caddy_data:
   caddy_config:

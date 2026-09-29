@@ -5,6 +5,9 @@ import type { InvoiceMetadata, LineItem, ClientData } from '../types';
 interface A4DocumentProps {
   metadata: InvoiceMetadata;
   documentHtml: string;
+  pageNumber?: number;
+  totalPages?: number;
+  showSignatory?: boolean;
   items?: LineItem[];
   client?: ClientData;
   scale?: number;
@@ -13,10 +16,15 @@ interface A4DocumentProps {
 export const A4Document: React.FC<A4DocumentProps> = ({
   metadata,
   documentHtml,
+  pageNumber = 1,
+  totalPages = 1,
+  showSignatory,
 }) => {
   const formattedDate = metadata.date
     ? dayjs(metadata.date).format('DD-MM-YYYY')
     : dayjs().format('DD-MM-YYYY');
+
+  const shouldRenderSignatory = showSignatory ?? (pageNumber === totalPages);
 
   return (
     <div
@@ -24,6 +32,7 @@ export const A4Document: React.FC<A4DocumentProps> = ({
       style={{
         width: '794px',
         minHeight: '1123px',
+        height: '1123px',
         color: '#111827',
         backgroundColor: '#ffffff',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -37,8 +46,8 @@ export const A4Document: React.FC<A4DocumentProps> = ({
         className="absolute inset-0 w-full h-full object-fill pointer-events-none z-0"
       />
 
-      {/* Top Header Overlay: Date & Invoice ID */}
-      <div className="relative z-10 pt-8 pr-14 text-right">
+      {/* Top Header Overlay: Date, Invoice ID & Page Number */}
+      <div className="relative z-10 pt-6 pr-14 text-right">
         <div className="inline-block text-left text-[12.5px] font-sans leading-snug">
           <p className="text-gray-900">
             <span className="font-semibold">Date:</span>{' '}
@@ -51,8 +60,8 @@ export const A4Document: React.FC<A4DocumentProps> = ({
         </div>
       </div>
 
-      {/* Main Document Body Container - pt-16 provides clear whitespace below top graphic banner */}
-      <div className="relative z-10 px-14 pt-16 pb-36">
+      {/* Main Document Body Container */}
+      <div className="relative z-10 px-14 pt-10 pb-24">
         {/* Dynamic HTML Document Body (Overview, Scope of Work, Deliverables, Custom Document Tables) */}
         <div
           className="invoice-doc-body prose prose-sm max-w-none text-gray-850 leading-relaxed
@@ -65,34 +74,40 @@ export const A4Document: React.FC<A4DocumentProps> = ({
             [&_table]:w-full [&_table]:table-fixed [&_table]:border-collapse [&_table]:my-5 [&_table]:border [&_table]:border-gray-900
             [&_th]:bg-[#dce8fd] [&_th]:border [&_th]:border-gray-900 [&_th]:p-2.5 [&_th]:text-[12.5px] [&_th]:font-bold [&_th]:text-gray-900 [&_th]:text-left
             [&_td]:border [&_td]:border-gray-900 [&_td]:p-2.5 [&_td]:text-[12.5px] [&_td]:text-gray-800 [&_td]:align-top"
+          style={{
+            maxHeight: shouldRenderSignatory ? '780px' : '860px',
+            overflow: 'hidden',
+          }}
           dangerouslySetInnerHTML={{ __html: documentHtml }}
         />
 
         {/* Authorized Signatory Block (With uploaded signature image or cursive fallback) */}
-        <div className="mt-12 flex justify-end">
-          <div className="text-center min-w-40">
-            <div className="h-12 flex items-center justify-center min-w-36">
-              {metadata.signatorySignatureImage ? (
-                <img
-                  src={metadata.signatorySignatureImage}
-                  alt={metadata.signatoryName || 'Signature'}
-                  crossOrigin="anonymous"
-                  className="max-h-12 max-w-44 object-contain"
-                />
-              ) : metadata.signatoryName ? (
-                <span
-                  style={{ fontFamily: "'Brush Script MT', 'Dancing Script', cursive" }}
-                  className="text-2xl text-blue-900 tracking-wider font-medium"
-                >
-                  {metadata.signatoryName}
-                </span>
-              ) : null}
+        {shouldRenderSignatory && (
+          <div className="mt-6 flex justify-end">
+            <div className="text-center min-w-40">
+              <div className="h-12 flex items-center justify-center min-w-36">
+                {metadata.signatorySignatureImage ? (
+                  <img
+                    src={metadata.signatorySignatureImage}
+                    alt={metadata.signatoryName || 'Signature'}
+                    crossOrigin="anonymous"
+                    className="max-h-12 max-w-44 object-contain"
+                  />
+                ) : metadata.signatoryName ? (
+                  <span
+                    style={{ fontFamily: "'Brush Script MT', 'Dancing Script', cursive" }}
+                    className="text-2xl text-blue-900 tracking-wider font-medium"
+                  >
+                    {metadata.signatoryName}
+                  </span>
+                ) : null}
+              </div>
+              <p className="font-bold text-[13px] text-gray-900 mt-1">
+                Authorized Signatory
+              </p>
             </div>
-            <p className="font-bold text-[13px] text-gray-900 mt-1">
-              Authorized Signatory
-            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Footer Contact Details Overlay: Dynamically bound to the 4 footer inputs */}

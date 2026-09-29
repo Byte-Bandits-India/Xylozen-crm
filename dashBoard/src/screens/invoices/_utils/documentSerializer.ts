@@ -45,6 +45,7 @@ export function getDefaultDocumentJSON(): InvoiceDocumentJSON {
     documentFormat: 'tiptap-v2',
     documentTitle: DEFAULT_DOCUMENT_TITLE,
     documentHtml: DEFAULT_ESTIMATE_HTML,
+    pages: [DEFAULT_ESTIMATE_HTML],
     companyDetails: {
       website: DEFAULT_WEBSITE,
       address: DEFAULT_ADDRESS,
@@ -61,7 +62,17 @@ export function getDefaultDocumentJSON(): InvoiceDocumentJSON {
 
 export function serializeDocument(doc: InvoiceDocumentJSON): string {
   try {
-    return JSON.stringify(doc);
+    const pages =
+      doc.pages && doc.pages.length > 0
+        ? doc.pages
+        : [doc.documentHtml || DEFAULT_ESTIMATE_HTML];
+    const combinedHtml = pages.join('\n<!-- page-break -->\n');
+
+    return JSON.stringify({
+      ...doc,
+      documentHtml: doc.documentHtml || combinedHtml,
+      pages,
+    });
   } catch (err) {
     console.error('Failed to serialize invoice document:', err);
     return JSON.stringify(getDefaultDocumentJSON());
@@ -77,18 +88,40 @@ export function deserializeDocument(rawDescription?: string | null): InvoiceDocu
   if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     try {
       const parsed = JSON.parse(trimmed);
-      if (parsed.documentHtml || parsed.documentFormat) {
-        let html = parsed.documentHtml || DEFAULT_ESTIMATE_HTML;
-        // If the documentHtml doesn't already contain a heading, inject the heading from documentTitle or default
-        if (!html.includes('<h1') && (parsed.documentTitle || DEFAULT_DOCUMENT_TITLE)) {
-          const heading = parsed.documentTitle || DEFAULT_DOCUMENT_TITLE;
-          html = `<h1 style="text-align: center;"><u><strong>${heading}</strong></u></h1>\n\n` + html;
+      if (parsed.documentHtml || parsed.documentFormat || parsed.pages) {
+        let pages: string[] = [];
+        if (Array.isArray(parsed.pages) && parsed.pages.length > 0) {
+          pages = parsed.pages;
+        } else if (parsed.documentHtml) {
+          if (parsed.documentHtml.includes('<!-- page-break -->')) {
+            pages = parsed.documentHtml
+              .split('<!-- page-break -->')
+              .map((p: string) => p.trim())
+              .filter(Boolean);
+          } else {
+            pages = [parsed.documentHtml];
+          }
+        } else {
+          pages = [DEFAULT_ESTIMATE_HTML];
         }
+
+        // Check if page 1 needs heading from documentTitle
+        if (
+          pages.length > 0 &&
+          !pages[0].includes('<h1') &&
+          (parsed.documentTitle || DEFAULT_DOCUMENT_TITLE)
+        ) {
+          const heading = parsed.documentTitle || DEFAULT_DOCUMENT_TITLE;
+          pages[0] = `<h1 style="text-align: center;"><u><strong>${heading}</strong></u></h1>\n\n` + pages[0];
+        }
+
+        const combinedHtml = pages.join('\n<!-- page-break -->\n');
 
         return {
           documentFormat: parsed.documentFormat || 'tiptap-v2',
           documentTitle: parsed.documentTitle || DEFAULT_DOCUMENT_TITLE,
-          documentHtml: html,
+          documentHtml: parsed.documentHtml || combinedHtml,
+          pages,
           documentBody: parsed.documentBody,
           companyDetails: {
             website: parsed.companyDetails?.website || DEFAULT_WEBSITE,
@@ -123,6 +156,7 @@ export function deserializeDocument(rawDescription?: string | null): InvoiceDocu
     documentFormat: 'plain-text-migrated',
     documentTitle: DEFAULT_DOCUMENT_TITLE,
     documentHtml: paragraphs ? defaultHtmlWithHeading : DEFAULT_ESTIMATE_HTML,
+    pages: [paragraphs ? defaultHtmlWithHeading : DEFAULT_ESTIMATE_HTML],
     companyDetails: {
       website: DEFAULT_WEBSITE,
       address: DEFAULT_ADDRESS,

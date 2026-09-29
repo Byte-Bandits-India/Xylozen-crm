@@ -79,6 +79,7 @@ export interface InvoiceDocumentJSON {
   documentFormat: string;
   documentTitle: string;
   documentHtml: string;
+  pages?: string[];
   documentBody?: any;
   companyDetails?: CompanyDetails;
   signatory?: {

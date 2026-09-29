@@ -250,6 +250,9 @@ export async function generateInvoicePdf({
       clone.style.boxShadow = 'none';
       clone.style.width = '794px';
       clone.style.minHeight = '1123px';
+      clone.style.height = '1123px';
+      clone.style.maxHeight = '1123px';
+      clone.style.overflow = 'hidden';
       stagingContainer.appendChild(clone);
 
       // Ensure all images in the clone are loaded with proper CORS
@@ -283,7 +286,7 @@ export async function generateInvoicePdf({
         logging: false,
         backgroundColor: '#ffffff',
         width: 794,
-        height: clone.offsetHeight || 1123,
+        height: 1123,
         windowWidth: 794,
         scrollX: 0,
         scrollY: 0,
@@ -364,7 +367,7 @@ export function printInvoiceDocument(element?: HTMLElement | null): void {
             padding: 0 !important;
             background: #ffffff !important;
             width: 794px !important;
-            height: 1123px !important;
+            min-height: 100% !important;
             overflow: visible !important;
           }
           .a4-page-sheet {
@@ -372,7 +375,15 @@ export function printInvoiceDocument(element?: HTMLElement | null): void {
             border: none !important;
             margin: 0 !important;
             width: 794px !important;
+            height: 1123px !important;
             min-height: 1123px !important;
+            max-height: 1123px !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .a4-page-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
         </style>
       </head>
