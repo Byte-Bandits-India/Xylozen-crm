@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/context-menu'
 import {
   FolderOpen,
-  ExternalLink,
   Eye,
   Download,
   Edit3,
