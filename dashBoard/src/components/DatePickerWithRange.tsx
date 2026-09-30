@@ -9,7 +9,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { addDays, isBefore, format } from "date-fns"
+import { subDays, isBefore, format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { type DateRange } from "react-day-picker"
 
@@ -22,9 +22,12 @@ export function DatePickerWithRange({
     date: externalDate,
     onDateChange,
 }: DatePickerWithRangeProps = {}) {
-    const [internalDate, setInternalDate] = React.useState<DateRange | undefined>({
-        from: new Date(new Date().getFullYear(), 0, 20),
-        to: addDays(new Date(new Date().getFullYear(), 0, 20), 20),
+    const [internalDate, setInternalDate] = React.useState<DateRange | undefined>(() => {
+        const today = new Date();
+        return {
+            from: subDays(today, 30),
+            to: today,
+        };
     });
 
     const isControlled = externalDate !== undefined;

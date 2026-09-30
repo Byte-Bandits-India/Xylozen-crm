@@ -7,7 +7,7 @@ import DashboardTable from '@/components/table/DashboardTable'
 import { DatePickerWithRange } from '@/components/DatePickerWithRange'
 import { useEffect, useState, useMemo } from 'react'
 import type { DateRange } from 'react-day-picker'
-import { addDays } from 'date-fns'
+import { subDays } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import ResponsiveSidebar from '@/components/Sidebar/ResponsiveSidebar'
@@ -67,10 +67,13 @@ const FinancialDashboard = () => {
         return false
     })
 
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => ({
-        from: new Date(new Date().getFullYear(), 0, 20),
-        to: addDays(new Date(new Date().getFullYear(), 0, 20), 20),
-    }))
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+        const today = new Date();
+        return {
+            from: subDays(today, 30),
+            to: today,
+        };
+    })
 
     const dateParams = useMemo(() => {
         const params = new URLSearchParams()
