@@ -14,7 +14,7 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
         color: CHART_COLORS[i % CHART_COLORS.length]
     }))
 
-    if (Array.isArray(externalData)) {
+    if (Array.isArray(externalData) && externalData.length > 0) {
         const totalValue = externalData.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
         data = externalData.map((d, i) => ({
             name: d.name,
@@ -25,6 +25,12 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
     }
 
     const TOTAL = data.reduce((sum, d) => sum + d.value, 0);
+    const isZero = TOTAL === 0;
+
+    const pieData = isZero
+        ? [{ name: "No Spend", value: 1, color: "var(--border)" }]
+        : data;
+
     return (
         <Card className="w-full rounded-xl shadow-xs border border-border bg-card text-card-foreground py-3.5 px-5">
             <CardContent className="p-0 flex flex-col items-center gap-4">
@@ -33,24 +39,32 @@ export default function SpendBreakdown({ data: externalData }: SpendBreakdownPro
                 <div className="relative flex items-center justify-center w-[200px] h-[200px]">
                     <PieChart width={200} height={200}>
                         <Pie
-                            data={data}
+                            data={pieData}
                             cx={96}
                             cy={96}
                             innerRadius={62}
                             outerRadius={90}
-                            paddingAngle={2}
+                            paddingAngle={isZero ? 0 : 2}
                             dataKey="value"
                             startAngle={90}
                             endAngle={-270}
+                            stroke="none"
                         >
-                            {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                            {pieData.map((entry, index) => (
+                                <Cell
+                                    key={`cell-${index}`}
+                                    fill={isZero ? "var(--border)" : (entry.color || CHART_COLORS[index % CHART_COLORS.length])}
+                                    opacity={isZero ? 0.35 : 1}
+                                    stroke="none"
+                                />
                             ))}
                         </Pie>
-                        <Tooltip
-                            formatter={(value: number) => [`₹${value.toLocaleString()}`]}
-                            contentStyle={{ borderRadius: 8, fontSize: 13, background: 'var(--popover)', color: 'var(--popover-foreground)', borderColor: 'var(--border)' }}
-                        />
+                        {!isZero && (
+                            <Tooltip
+                                formatter={(value: number) => [`₹${value.toLocaleString()}`]}
+                                contentStyle={{ borderRadius: 8, fontSize: 13, background: 'var(--popover)', color: 'var(--popover-foreground)', borderColor: 'var(--border)' }}
+                            />
+                        )}
                     </PieChart>
 
                     {/* Absolute center label */}

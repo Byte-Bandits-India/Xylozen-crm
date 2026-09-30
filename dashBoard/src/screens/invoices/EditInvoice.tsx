@@ -21,7 +21,7 @@ import {
   deserializeDocument,
   serializeDocument,
 } from './_utils/documentSerializer';
-import { autoPaginateHtml } from './_utils/contentPaginator';
+import { autoPaginateHtml, cascadeDocumentPages } from './_utils/contentPaginator';
 
 const EMPTY_TEAM_USERS: TeamUser[] = [];
 
@@ -133,6 +133,41 @@ export default function EditInvoice() {
       return next;
     });
     setActivePageIndex(toIndex);
+  };
+
+  const handleAutoSplitPage = (pageIndex: number, fittingHtml: string, overflowHtml: string) => {
+    setPages((prev) => {
+      const next = [...prev];
+      next[pageIndex] = fittingHtml;
+
+      if (pageIndex + 1 < next.length) {
+        // Prepend overflow to subsequent page and cascade across remaining document
+        next[pageIndex + 1] = `${overflowHtml}\n${next[pageIndex + 1]}`;
+        return cascadeDocumentPages(next);
+      } else {
+        // Append brand new page(s) and cascade across remaining document
+        next.splice(pageIndex + 1, 0, overflowHtml);
+        return cascadeDocumentPages(next);
+      }
+    });
+
+    message.info({
+      content: `Page ${pageIndex + 1} reached A4 capacity. Overflow moved to Page ${pageIndex + 2}.`,
+      key: 'auto-split-page-info',
+      duration: 3,
+    });
+  };
+
+  const handleRepaginatePages = (newPages: string[], newActiveIndex?: number) => {
+    setPages(newPages);
+    if (typeof newActiveIndex === 'number') {
+      setActivePageIndex(newActiveIndex);
+    }
+    message.success({
+      content: `Document rebalanced into ${newPages.length} ${newPages.length === 1 ? 'page' : 'pages'}.`,
+      key: 'rebalance-pages-info',
+      duration: 2.5,
+    });
   };
 
   // State: Financial Line Items
@@ -371,6 +406,8 @@ export default function EditInvoice() {
               onDeletePage={handleDeletePage}
               onDuplicatePage={handleDuplicatePage}
               onMovePage={handleMovePage}
+              onAutoSplitPage={handleAutoSplitPage}
+              onRepaginatePages={handleRepaginatePages}
             />
           </div>
         </div>

@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import {
   getDriveFiles,
+  getDriveFileContent,
   createDriveFolder,
   uploadDriveFile,
   renameDriveItem,
@@ -23,6 +24,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get("/files", getDriveFiles);
+router.get("/files/:id/content", getDriveFileContent);
 router.post("/folders", createDriveFolder);
 router.post("/upload", upload.single("file"), uploadDriveFile);
 router.patch("/files/:id/rename", renameDriveItem);

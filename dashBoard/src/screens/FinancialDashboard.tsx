@@ -5,7 +5,9 @@ import 'antd/dist/reset.css'
 import { ChartBarHorizontal } from '@/components/chart/HorizontalBarChart'
 import DashboardTable from '@/components/table/DashboardTable'
 import { DatePickerWithRange } from '@/components/DatePickerWithRange'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import type { DateRange } from 'react-day-picker'
+import { addDays } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import ResponsiveSidebar from '@/components/Sidebar/ResponsiveSidebar'
@@ -65,18 +67,37 @@ const FinancialDashboard = () => {
         return false
     })
 
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => ({
+        from: new Date(new Date().getFullYear(), 0, 20),
+        to: addDays(new Date(new Date().getFullYear(), 0, 20), 20),
+    }))
+
+    const dateParams = useMemo(() => {
+        const params = new URLSearchParams()
+        if (dateRange?.from) {
+            params.append('from', dateRange.from.toISOString())
+        }
+        if (dateRange?.to) {
+            const end = new Date(dateRange.to)
+            end.setHours(23, 59, 59, 999)
+            params.append('to', end.toISOString())
+        }
+        const qs = params.toString()
+        return qs ? `?${qs}` : ''
+    }, [dateRange?.from, dateRange?.to])
+
     const { data: overview } = useQuery<DashboardOverview>({
-        queryKey: ['dashboard-overview'],
+        queryKey: ['dashboard-overview', dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
         queryFn: async () => {
-            const res = await apiClient.get('/dashboard/overview')
+            const res = await apiClient.get(`/dashboard/overview${dateParams}`)
             return res.data?.data || res.data || null
         },
     })
 
     const { data: contributions = [] } = useQuery<Contribution[]>({
-        queryKey: ['dashboard-contributions'],
+        queryKey: ['dashboard-contributions', dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
         queryFn: async () => {
-            const res = await apiClient.get('/dashboard/contributions')
+            const res = await apiClient.get(`/dashboard/contributions${dateParams}`)
             if (res.data?.success && Array.isArray(res.data?.data)) {
                 return res.data.data
             }
@@ -85,9 +106,9 @@ const FinancialDashboard = () => {
     })
 
     const { data: chartDataPayload } = useQuery<ChartData>({
-        queryKey: ['dashboard-chart-data'],
+        queryKey: ['dashboard-chart-data', dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
         queryFn: async () => {
-            const res = await apiClient.get('/dashboard/chart-data')
+            const res = await apiClient.get(`/dashboard/chart-data${dateParams}`)
             return res.data?.data || res.data || null
         },
     })
@@ -120,10 +141,13 @@ const FinancialDashboard = () => {
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                            <DatePickerWithRange />
+                            <DatePickerWithRange
+                                date={dateRange}
+                                onDateChange={setDateRange}
+                            />
                             <Button
                                 size="sm"
-                                className="h-9 bg-brand-blue text-primary-foreground hover:bg-brand-blue/90 shadow-xs cursor-pointer"
+                                className="h-9 bg-brand-blue !text-white hover:bg-brand-blue/90 shadow-xs cursor-pointer"
                                 onClick={() => setSidebarOpen((prev) => !prev)}
                             >
                                 <ThunderboltOutlined className="h-4 w-4" />

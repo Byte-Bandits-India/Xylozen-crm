@@ -11,6 +11,9 @@ export interface DriveItem {
   modifiedTime: string;
   webViewLink?: string;
   webContentLink?: string;
+  thumbnailLink?: string;
+  hasThumbnail?: boolean;
+  iconLink?: string;
   parentFolderId?: string;
   owner?: {
     name: string;
@@ -23,6 +26,7 @@ export interface DriveItem {
 
 class GoogleDriveService {
   private driveClient: drive_v3.Drive | null = null;
+  private serviceAccountClient: drive_v3.Drive | null = null;
   private isConfigured = false;
   private rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || "1fU0Hvf_pSGilCEonywI21kjjS4_htade";
 
@@ -44,30 +48,34 @@ class GoogleDriveService {
         privateKey = privateKey.replace(/\\n/g, "\n");
       }
 
-      let auth: any = null;
-
-      if (clientId && clientSecret && refreshToken) {
-        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-        auth = oauth2Client;
-        console.log("✅ Google Drive API initialized successfully with OAuth 2.0 (User Quota)");
-      } else if (email && privateKey) {
-        auth = new google.auth.JWT({
+      if (email && privateKey) {
+        const saAuth = new google.auth.JWT({
           email,
           key: privateKey,
           scopes: ["https://www.googleapis.com/auth/drive"],
         });
+        this.serviceAccountClient = google.drive({ version: "v3", auth: saAuth });
+      }
+
+      if (clientId && clientSecret && refreshToken) {
+        const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        this.driveClient = google.drive({ version: "v3", auth: oauth2Client });
+        console.log("✅ Google Drive API initialized successfully with OAuth 2.0 (User Quota)");
+      } else if (this.serviceAccountClient) {
+        this.driveClient = this.serviceAccountClient;
         console.log("✅ Google Drive API initialized successfully with Service Account JWT");
       } else if (keyFilePath) {
-        auth = new google.auth.GoogleAuth({
+        const auth = new google.auth.GoogleAuth({
           keyFile: keyFilePath,
           scopes: ["https://www.googleapis.com/auth/drive"],
         });
+        this.driveClient = google.drive({ version: "v3", auth });
       }
 
-      if (auth) {
-        this.driveClient = google.drive({ version: "v3", auth });
+      if (this.driveClient) {
         this.isConfigured = true;
+        this.rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || "1fU0Hvf_pSGilCEonywI21kjjS4_htade";
         console.log("✅ Google Drive Root Folder:", this.rootFolderId);
       } else {
         console.warn("⚠️ Google Drive credentials not provided.");
@@ -76,6 +84,15 @@ class GoogleDriveService {
       console.error("❌ Failed to initialize Google Drive client:", error);
       this.isConfigured = false;
     }
+  }
+
+  private getClients(): drive_v3.Drive[] {
+    const clients: drive_v3.Drive[] = [];
+    if (this.driveClient) clients.push(this.driveClient);
+    if (this.serviceAccountClient && this.serviceAccountClient !== this.driveClient) {
+      clients.push(this.serviceAccountClient);
+    }
+    return clients;
   }
 
   private formatBytes(bytes: number | null): string {
@@ -130,12 +147,11 @@ class GoogleDriveService {
 
     const res = await this.driveClient.files.list({
       q,
-      fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents, owners, shared)",
+      fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, thumbnailLink, hasThumbnail, iconLink, parents, owners, shared)",
       orderBy: "folder,modifiedTime desc",
       pageSize: 100,
       supportsAllDrives: true,
       includeItemsFromAllDrives: true,
-      corpora: "allDrives",
     });
 
     const files = res.data.files || [];
@@ -145,7 +161,7 @@ class GoogleDriveService {
       let ownerDisplayName = "me";
       if (file.owners && file.owners[0]) {
         const rawName = file.owners[0].displayName || file.owners[0].emailAddress || "";
-        if (rawName.includes("gserviceaccount.com") || rawName.includes("dashboard-drive-bot") || file.owners[0].me) {
+        if (rawName.includes("gserviceaccount.com") || rawName.includes("drive-bot") || file.owners[0].me) {
           ownerDisplayName = "me";
         } else if (rawName) {
           ownerDisplayName = rawName;
@@ -168,6 +184,9 @@ class GoogleDriveService {
         modifiedTime: file.modifiedTime || new Date().toISOString(),
         webViewLink: file.webViewLink || undefined,
         webContentLink: file.webContentLink || undefined,
+        thumbnailLink: file.thumbnailLink || undefined,
+        hasThumbnail: Boolean(file.hasThumbnail),
+        iconLink: file.iconLink || undefined,
         parentFolderId: parentFolderId,
         owner: ownerObj,
         shared: Boolean(file.shared),
@@ -267,16 +286,31 @@ class GoogleDriveService {
       throw new Error("Google Drive is not configured.");
     }
 
-    const res = await this.driveClient.files.update({
-      supportsAllDrives: true,
-      fileId,
-      requestBody: {
-        name: newName.trim(),
-      },
-      fields: "id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents, owners, shared",
-    });
+    const clientsToTry = this.getClients();
+    let lastError: any = null;
+    let file: any = null;
 
-    const file = res.data;
+    for (const client of clientsToTry) {
+      try {
+        const res = await client.files.update({
+          supportsAllDrives: true,
+          fileId,
+          requestBody: {
+            name: newName.trim(),
+          },
+          fields: "id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents, owners, shared",
+        });
+        file = res.data;
+        break;
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!file) {
+      throw lastError || new Error("Failed to rename item");
+    }
+
     const isFolder = file.mimeType === "application/vnd.google-apps.folder";
     const sizeNum = file.size ? parseInt(file.size, 10) : null;
 
@@ -306,15 +340,30 @@ class GoogleDriveService {
     const addParent = targetFolderId === "root" ? this.rootFolderId : targetFolderId;
     const removeParent = currentParentId === "root" ? this.rootFolderId : currentParentId;
 
-    const res = await this.driveClient.files.update({
-      supportsAllDrives: true,
-      fileId,
-      addParents: addParent,
-      removeParents: removeParent,
-      fields: "id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents, owners, shared",
-    });
+    const clientsToTry = this.getClients();
+    let lastError: any = null;
+    let file: any = null;
 
-    const file = res.data;
+    for (const client of clientsToTry) {
+      try {
+        const res = await client.files.update({
+          supportsAllDrives: true,
+          fileId,
+          addParents: addParent,
+          removeParents: removeParent,
+          fields: "id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents, owners, shared",
+        });
+        file = res.data;
+        break;
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!file) {
+      throw lastError || new Error("Failed to move item");
+    }
+
     const isFolder = file.mimeType === "application/vnd.google-apps.folder";
     const sizeNum = file.size ? parseInt(file.size, 10) : null;
 
@@ -342,11 +391,106 @@ class GoogleDriveService {
       throw new Error("Google Drive is not configured.");
     }
 
-    await this.driveClient.files.delete({
-      supportsAllDrives: true,
-      fileId,
-    });
-    return true;
+    const clientsToTry = this.getClients();
+    let lastError: any = null;
+
+    // 1. Try standard Move to Trash first across available clients
+    for (const client of clientsToTry) {
+      try {
+        await client.files.update({
+          fileId,
+          requestBody: { trashed: true },
+          supportsAllDrives: true,
+        });
+        return true;
+      } catch (trashErr: any) {
+        lastError = trashErr;
+      }
+
+      // 2. Try permanent deletion
+      try {
+        await client.files.delete({
+          fileId,
+          supportsAllDrives: true,
+        });
+        return true;
+      } catch (deleteErr: any) {
+        lastError = deleteErr;
+      }
+    }
+
+    // 3. Fallback: if not owner of the file (e.g. shared folder item), remove item from parents
+    for (const client of clientsToTry) {
+      try {
+        const meta = await client.files.get({
+          fileId,
+          fields: "id, parents",
+          supportsAllDrives: true,
+        });
+        const parents = meta.data.parents;
+        if (parents && parents.length > 0) {
+          await client.files.update({
+            fileId,
+            removeParents: parents.join(","),
+            supportsAllDrives: true,
+          });
+          return true;
+        }
+      } catch (unparentErr: any) {
+        lastError = unparentErr;
+      }
+    }
+
+    console.error("DELETE DRIVE ITEM ERROR:", lastError?.message || lastError);
+    throw lastError || new Error("Failed to delete item from Google Drive");
+  }
+
+  async getFileContent(fileId: string): Promise<{ stream: any; mimeType: string; name: string; size?: string }> {
+    if (!this.driveClient) {
+      this.init();
+    }
+    const clients = this.getClients();
+    let lastError: any = null;
+
+    for (const client of clients) {
+      try {
+        const meta = await client.files.get({
+          fileId,
+          fields: "id, name, mimeType, size",
+          supportsAllDrives: true,
+        });
+
+        const mimeType = meta.data.mimeType || "application/octet-stream";
+        const name = meta.data.name || "file";
+
+        // If it's a Google Workspace file (docs, sheets, slides), export it as PDF
+        if (mimeType.startsWith("application/vnd.google-apps.")) {
+          const exportMime = "application/pdf";
+          const exportRes = await client.files.export(
+            { fileId, mimeType: exportMime },
+            { responseType: "stream" }
+          );
+          return { stream: exportRes.data, mimeType: exportMime, name: `${name}.pdf` };
+        }
+
+        const res = await client.files.get(
+          { fileId, alt: "media", supportsAllDrives: true },
+          { responseType: "stream" }
+        );
+
+        return {
+          stream: res.data,
+          mimeType,
+          name,
+          size: meta.data.size || undefined,
+        };
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    console.error("GET FILE CONTENT ERROR:", lastError?.message || lastError);
+    throw lastError || new Error("Failed to retrieve file content");
   }
 }
 

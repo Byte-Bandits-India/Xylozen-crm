@@ -18,8 +18,8 @@ export type SpendBreakdownItem = {
 }
 
 export const SPEND_BREAKDOWN_FALLBACK_DATA = [
-  { name: 'salaries', value: 950, share: '35.8' },
-  { name: 'professional fees', value: 680, share: '25.6' },
-  { name: 'technology', value: 520, share: '19.6' },
-  { name: 'utilities', value: 310, share: '11.7' },
+  { name: 'salaries', value: 0, share: '0.0' },
+  { name: 'professional fees', value: 0, share: '0.0' },
+  { name: 'technology', value: 0, share: '0.0' },
+  { name: 'utilities', value: 0, share: '0.0' },
 ] satisfies Omit<SpendBreakdownItem, 'color'>[]

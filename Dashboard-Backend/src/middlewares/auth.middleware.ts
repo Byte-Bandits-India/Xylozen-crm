@@ -17,12 +17,14 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   const header = req.headers.authorization;
-
-  if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  let token = header && header.startsWith("Bearer ") ? header.split(" ")[1] : null;
+  if (!token && typeof req.query.token === "string") {
+    token = req.query.token;
   }
 
-  const token = header.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
   try {
     const decoded = jwt.verify(

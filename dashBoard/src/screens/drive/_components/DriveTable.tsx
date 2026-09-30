@@ -17,12 +17,19 @@ import {
   DeleteOutlined,
   ArrowUpOutlined,
   TeamOutlined,
+  EyeOutlined,
 } from '@ant-design/icons'
 import type { DriveItem } from '@/types/drive'
 
 interface DriveTableProps {
   items: DriveItem[]
   loading?: boolean
+  selectedItem?: DriveItem | null
+  selectedItems?: DriveItem[]
+  onSelectItem?: (item: DriveItem | null) => void
+  onSelectItems?: (items: DriveItem[]) => void
+  onToggleSelectItem?: (item: DriveItem) => void
+  onSetContextMenuTarget?: (item: DriveItem | null) => void
   onOpenFolder: (folder: DriveItem) => void
   onRenameItem: (item: DriveItem) => void
   onMoveItem: (item: DriveItem) => void
@@ -84,7 +91,7 @@ export const formatDateModified = (dateString: string) => {
 export const formatOwnerName = (owner?: { name?: string; email?: string; isMe?: boolean }) => {
   if (!owner) return 'me'
   const name = owner.name || owner.email || 'me'
-  if (name.includes('gserviceaccount.com') || name.includes('dashboard-drive-bot') || owner.isMe) {
+  if (name.includes('gserviceaccount.com') || name.includes('drive-bot') || owner.isMe) {
     return 'me'
   }
   return name
@@ -93,6 +100,11 @@ export const formatOwnerName = (owner?: { name?: string; email?: string; isMe?: 
 export const DriveTable: React.FC<DriveTableProps> = ({
   items,
   loading,
+  selectedItem,
+  selectedItems,
+  onSelectItem,
+  onSelectItems,
+  onSetContextMenuTarget,
   onOpenFolder,
   onRenameItem,
   onMoveItem,
@@ -102,8 +114,8 @@ export const DriveTable: React.FC<DriveTableProps> = ({
   const getActionMenu = (item: DriveItem): MenuProps['items'] => [
     {
       key: 'open',
-      icon: <FolderOpenOutlined />,
-      label: item.isFolder ? 'Open folder' : 'Open in Google Drive',
+      icon: item.isFolder ? <FolderOpenOutlined /> : <EyeOutlined />,
+      label: item.isFolder ? 'Open folder' : 'Preview file',
       onClick: () => (item.isFolder ? onOpenFolder(item) : onOpenFileLink(item)),
     },
     {
@@ -161,13 +173,7 @@ export const DriveTable: React.FC<DriveTableProps> = ({
       key: 'name',
       width: '45%',
       render: (_: any, record: DriveItem) => (
-        <div
-          onClick={() => {
-            if (record.isFolder) onOpenFolder(record)
-            else onOpenFileLink(record)
-          }}
-          className="flex items-center gap-2.5 cursor-pointer group py-0.5"
-        >
+        <div className="flex items-center gap-2.5 group py-0.5 select-none">
           {getFileIcon(record)}
           <span className="text-xs font-normal text-slate-800 group-hover:text-blue-600 truncate max-w-sm transition-colors">
             {record.name}
@@ -237,9 +243,20 @@ export const DriveTable: React.FC<DriveTableProps> = ({
     },
   ]
 
+  const selectedKeys = (selectedItems || []).map((it) => it.id)
+
+  const rowSelection = {
+    selectedRowKeys: selectedKeys,
+    onChange: (_selectedRowKeys: React.Key[], selectedRows: DriveItem[]) => {
+      onSelectItems?.(selectedRows)
+    },
+    columnWidth: 42,
+  }
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs">
       <Table
+        rowSelection={rowSelection}
         dataSource={items}
         columns={columns}
         rowKey="id"
@@ -247,10 +264,39 @@ export const DriveTable: React.FC<DriveTableProps> = ({
         pagination={false}
         size="small"
         className="drive-files-table"
+        rowClassName={(record) => {
+          const isChecked = selectedKeys.includes(record.id)
+          const isFocused = selectedItem?.id === record.id
+          if (isChecked) {
+            return 'cursor-pointer transition-colors bg-blue-50/90 font-medium hover:!bg-blue-100/70'
+          }
+          if (isFocused) {
+            return 'cursor-pointer transition-colors bg-slate-100/80 hover:!bg-slate-100'
+          }
+          return 'cursor-pointer transition-colors hover:bg-slate-50/80'
+        }}
         onRow={(record) => ({
+          onClick: (e) => {
+            const target = e.target as HTMLElement
+            // If clicking inside the checkbox column or input, Ant Design's rowSelection handles it
+            if (
+              target.closest('.ant-table-selection-column') ||
+              target.closest('.ant-checkbox-wrapper') ||
+              target.closest('input[type="checkbox"]') ||
+              target.closest('button')
+            ) {
+              return
+            }
+            // Clicking outside the checkbox only focuses the row, does NOT check the box
+            onSelectItem?.(record)
+          },
           onDoubleClick: () => {
             if (record.isFolder) onOpenFolder(record)
             else onOpenFileLink(record)
+          },
+          onContextMenu: () => {
+            onSetContextMenuTarget?.(record)
+            onSelectItem?.(record)
           },
         })}
         locale={{

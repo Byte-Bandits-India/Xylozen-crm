@@ -52,4 +52,16 @@ export const driveService = {
   deleteItem: async (id: string): Promise<void> => {
     await apiClient.delete(`/drive/files/${id}`)
   },
+
+  getFileContentUrl: (id: string): string => {
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || ''
+    return `/api/drive/files/${id}/content?token=${encodeURIComponent(token)}`
+  },
+
+  getFileText: async (id: string): Promise<string> => {
+    const res = await apiClient.get(`/drive/files/${id}/content`, {
+      responseType: 'text',
+    })
+    return res.data
+  },
 }

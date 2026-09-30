@@ -109,3 +109,20 @@ export const deleteDriveItem = async (req: AuthRequest, res: Response) => {
     return sendError(res, "Failed to delete item");
   }
 };
+
+export const getDriveFileContent = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { stream, mimeType, name, size } = await googleDriveService.getFileContent(id);
+
+    res.setHeader("Content-Type", mimeType);
+    if (size) res.setHeader("Content-Length", size);
+    res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(name)}"`);
+    res.setHeader("Cache-Control", "public, max-age=86400"); // 24hr cache for thumbnails and media
+
+    stream.pipe(res);
+  } catch (error) {
+    console.error("GET DRIVE FILE CONTENT ERROR:", error);
+    return res.status(404).send("File not found or inaccessible");
+  }
+};

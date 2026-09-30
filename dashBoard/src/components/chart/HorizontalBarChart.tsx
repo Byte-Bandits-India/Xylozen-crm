@@ -20,7 +20,12 @@ export interface ContributionData {
 
 export function ChartBarHorizontal({ data }: { data: ContributionData[] }) {
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-    const safeData = Array.isArray(data) ? data : [];
+    const safeData = Array.isArray(data) && data.length > 0
+        ? data
+        : [
+            { contributorName: "Contributor 1", totalAmount: 0, percent: 0, color: "var(--brand-blue)" },
+            { contributorName: "Contributor 2", totalAmount: 0, percent: 0, color: "#94a3b8" }
+        ];
 
     return (
         <Card>

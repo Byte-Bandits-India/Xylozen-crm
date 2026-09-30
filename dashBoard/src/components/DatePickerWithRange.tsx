@@ -9,24 +9,47 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { addDays, addMonths, subMonths, isAfter, isBefore, format } from "date-fns"
+import { addDays, isBefore, format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { type DateRange } from "react-day-picker"
 
-export function DatePickerWithRange() {
-    const [date, setDate] = React.useState<DateRange | undefined>({
+export interface DatePickerWithRangeProps {
+    date?: DateRange | undefined;
+    onDateChange?: (date: DateRange | undefined) => void;
+}
+
+export function DatePickerWithRange({
+    date: externalDate,
+    onDateChange,
+}: DatePickerWithRangeProps = {}) {
+    const [internalDate, setInternalDate] = React.useState<DateRange | undefined>({
         from: new Date(new Date().getFullYear(), 0, 20),
         to: addDays(new Date(new Date().getFullYear(), 0, 20), 20),
-    })
+    });
 
-    const handleSelect = (newDate: DateRange | undefined) => {
-        // Enforce the 1 month restriction programmatically
-        if (newDate?.from && newDate?.to) {
-            if (isAfter(newDate.to, addMonths(newDate.from, 1))) {
-                newDate.to = addMonths(newDate.from, 1);
+    const isControlled = externalDate !== undefined;
+    const date = isControlled ? externalDate : internalDate;
+
+    const handleSelect = (newRange: DateRange | undefined, selectedDay?: Date) => {
+        const day = selectedDay || newRange?.to || newRange?.from;
+
+        let nextRange: DateRange | undefined = newRange;
+
+        // If both from and to were already selected, start a fresh range with the clicked day
+        if (date?.from && date?.to && day) {
+            nextRange = { from: day, to: undefined };
+        } else if (date?.from && !date?.to && day) {
+            if (isBefore(day, date.from)) {
+                nextRange = { from: day, to: date.from };
+            } else {
+                nextRange = { from: date.from, to: day };
             }
         }
-        setDate(newDate);
+
+        if (!isControlled) {
+            setInternalDate(nextRange);
+        }
+        onDateChange?.(nextRange);
     };
 
     return (
@@ -61,18 +84,13 @@ export function DatePickerWithRange() {
                             selected={date}
                             onSelect={handleSelect}
                             numberOfMonths={2}
-                            disabled={
-                                date?.from && !date?.to
-                                    ? (day) =>
-                                          isAfter(day, addMonths(date.from as Date, 1)) ||
-                                          isBefore(day, subMonths(date.from as Date, 1))
-                                    : undefined
-                            }
-                            className="[&_.rdp-day_selected]:bg-blue-500 [&_.rdp-day_selected]:text-white [&_.rdp-day]:focus-visible:ring-blue-500"
+                            className="[&_.rdp-day_selected]:bg-blue-500 [&_.rdp-day_selected]:text-white [&_.rdp-day]:focus-visible:ring-blue-500 [&_[data-range-start=true]]:bg-blue-600 [&_[data-range-start=true]]:text-white [&_[data-range-end=true]]:bg-blue-600 [&_[data-range-end=true]]:text-white [&_[data-range-middle=true]]:bg-blue-200 [&_[data-range-middle=true]]:text-blue-900"
                         />
                     </div>
                 </PopoverContent>
             </Popover>
         </Field>
-    )
+    );
 }
+
+export default DatePickerWithRange;

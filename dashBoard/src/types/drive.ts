@@ -24,6 +24,9 @@ export interface DriveItem {
   modifiedTime: string
   webViewLink?: string
   webContentLink?: string
+  thumbnailLink?: string
+  hasThumbnail?: boolean
+  iconLink?: string
   parentFolderId?: string | null
   owner?: DriveOwner
   shared?: boolean

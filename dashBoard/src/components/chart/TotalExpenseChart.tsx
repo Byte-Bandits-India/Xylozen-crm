@@ -26,60 +26,92 @@ type CustomDotProps = {
     data?: ChartDataPoint[]
 }
 
-const formatYAxis = (value: number) => `$${value / 1000}k`
+const formatYAxis = (value: number) => {
+    if (value === 0) return "₹0";
+    if (value >= 1000) return `₹${value / 1000}k`;
+    return `₹${value}`;
+};
+
+const DEFAULT_WEEKLY_ZERO_DATA: ChartDataPoint[] = [
+    { label: "Week 1", value: 0 },
+    { label: "Week 2", value: 0 },
+    { label: "Week 3", value: 0 },
+    { label: "Week 4", value: 0 },
+];
+
+const DEFAULT_DAYS_ZERO_DATA: ChartDataPoint[] = [
+    { label: "Mon", value: 0 },
+    { label: "Tue", value: 0 },
+    { label: "Wed", value: 0 },
+    { label: "Thu", value: 0 },
+    { label: "Fri", value: 0 },
+    { label: "Sat", value: 0 },
+    { label: "Sun", value: 0 },
+];
 
 const CustomDot = (props: CustomDotProps) => {
-    const { cx, cy, value, index, data } = props
-    if (typeof index === 'undefined' || !data || typeof value === 'undefined') return null
-    const prev = data[index - 1]?.value ?? 0
-    const next = data[index + 1]?.value ?? 0
-    if (value >= prev && value >= next && value > 3500) {
-        return <circle cx={cx} cy={cy} r={5} fill="#2DA89A" stroke="white" strokeWidth={2} />
+    const { cx, cy, value, index, data } = props;
+    if (typeof index === 'undefined' || !data || typeof value === 'undefined' || value === 0) return null;
+    const prev = data[index - 1]?.value ?? 0;
+    const next = data[index + 1]?.value ?? 0;
+    if (value >= prev && value >= next && value > 0) {
+        return <circle cx={cx} cy={cy} r={5} fill="#2DA89A" stroke="white" strokeWidth={2} />;
     }
-    return null
-}
+    return null;
+};
 
 type TotalExpenseChartProps = {
-  data?: unknown[]
-}
+  data?: unknown[];
+};
 
 export default function TotalExpenseChart({ data: externalData }: TotalExpenseChartProps) {
-    const [filter, setFilter] = useState<"days" | "week">("week")
+    const [filter, setFilter] = useState<"days" | "week">("week");
 
-    let chartData: ChartDataPoint[] = []
-    let total = 0
+    let chartData: ChartDataPoint[] = [];
+    let total = 0;
 
     if (Array.isArray(externalData) && externalData.length > 0) {
         chartData = externalData.map((d: unknown) => {
-            const item = d as Record<string, unknown>
+            const item = d as Record<string, unknown>;
             return {
                 label: item.date ? String(item.date).substring(5) : (item.label as string || ""),
-                value: Number(item.expenses ?? item.value ?? 0)
-            }
-        })
-        total = chartData.reduce((sum, d) => sum + d.value, 0)
+                value: Number(item.expenses ?? item.value ?? 0),
+            };
+        });
+        total = chartData.reduce((sum, d) => sum + d.value, 0);
     }
 
     // Apply filtering based on "week" vs "days"
-    let displayData = chartData
+    let displayData: ChartDataPoint[] = [];
 
-    if (filter === "week" && chartData.length > 7) {
-        // Aggregate data into weekly buckets (aprox 4 weeks)
-        const weeklyData: ChartDataPoint[] = []
-        const bucketSize = Math.ceil(chartData.length / 4); // Dynamic split into 4 logical weeks
-        
-        for (let i = 0; i < chartData.length; i += bucketSize) {
-            const chunk = chartData.slice(i, i + bucketSize);
-            const sum = chunk.reduce((acc, curr) => acc + curr.value, 0);
-            weeklyData.push({
-                label: `Week ${weeklyData.length + 1}`,
-                value: sum
-            });
+    if (chartData.length === 0) {
+        displayData = filter === "week" ? DEFAULT_WEEKLY_ZERO_DATA : DEFAULT_DAYS_ZERO_DATA;
+    } else if (filter === "week") {
+        if (chartData.length > 7) {
+            // Aggregate data into weekly buckets (approx 4 weeks)
+            const weeklyData: ChartDataPoint[] = [];
+            const bucketSize = Math.ceil(chartData.length / 4);
+            
+            for (let i = 0; i < chartData.length; i += bucketSize) {
+                const chunk = chartData.slice(i, i + bucketSize);
+                const sum = chunk.reduce((acc, curr) => acc + curr.value, 0);
+                weeklyData.push({
+                    label: `Week ${weeklyData.length + 1}`,
+                    value: sum,
+                });
+            }
+            displayData = weeklyData;
+        } else {
+            displayData = chartData;
         }
-        displayData = weeklyData;
+    } else {
+        displayData = chartData;
     }
 
     const data = displayData;
+    const maxValue = Math.max(...data.map((d) => d.value), 0);
+    const yAxisDomain = maxValue === 0 ? [0, 5000] : [0, Math.ceil((maxValue * 1.2) / 1000) * 1000];
+    const yAxisTicks = maxValue === 0 ? [0, 1000, 2000, 3000, 4000, 5000] : undefined;
 
     return (
         <Card className="w-full max-w-[960px] rounded-xl border border-border shadow-xs bg-card text-card-foreground overflow-hidden">
@@ -148,7 +180,7 @@ export default function TotalExpenseChart({ data: externalData }: TotalExpenseCh
                                 axisLine={false}
                                 tickLine={false}
                                 dy={8}
-                                tickFormatter={(v) => v.replace(/\d+$/, "")}
+                                tickFormatter={(v) => String(v)}
                             />
 
                             <YAxis
@@ -156,8 +188,8 @@ export default function TotalExpenseChart({ data: externalData }: TotalExpenseCh
                                 tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
                                 axisLine={false}
                                 tickLine={false}
-                                domain={[1000, 6000]}
-                                ticks={[1000, 2000, 3000, 4000, 5000, 6000]}
+                                domain={yAxisDomain}
+                                ticks={yAxisTicks}
                             />
 
                             <Tooltip

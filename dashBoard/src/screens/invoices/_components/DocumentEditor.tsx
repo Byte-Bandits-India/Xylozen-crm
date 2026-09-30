@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -6,11 +6,16 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
-import { FileText, Plus, ChevronLeft, ChevronRight, Copy, Trash2 } from 'lucide-react';
+import { FileText, Plus, ChevronLeft, ChevronRight, Copy, Trash2, Layers } from 'lucide-react';
 import { Tooltip, Popconfirm } from 'antd';
 import { EditorToolbar } from './EditorToolbar';
 import { DocumentTableControls } from './DocumentTableControls';
 import { cn } from '@/lib/utils';
+import {
+  measurePageHeight,
+  splitPageOverflow,
+  cascadeDocumentPages,
+} from '../_utils/contentPaginator';
 
 interface DocumentEditorProps {
   contentHtml?: string;
@@ -24,6 +29,8 @@ interface DocumentEditorProps {
   onDeletePage?: (index: number) => void;
   onDuplicatePage?: (index: number) => void;
   onMovePage?: (fromIndex: number, toIndex: number) => void;
+  onAutoSplitPage?: (pageIndex: number, fittingHtml: string, overflowHtml: string) => void;
+  onRepaginatePages?: (newPages: string[], newActiveIndex?: number) => void;
   className?: string;
   readOnly?: boolean;
 }
@@ -39,11 +46,44 @@ export const DocumentEditor = ({
   onDeletePage,
   onDuplicatePage,
   onMovePage,
+  onAutoSplitPage,
+  onRepaginatePages,
   className,
   readOnly = false,
 }: DocumentEditorProps) => {
   const currentActiveIndex = activePageIndex ?? 0;
   const activeContent = pages ? (pages[currentActiveIndex] ?? '') : contentHtml;
+
+  const [capacity, setCapacity] = useState<{ percentage: number; isOverflowing: boolean } | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSplittingRef = useRef<boolean>(false);
+
+  const checkAndSplitOverflow = useCallback(
+    (html: string) => {
+      if (!pages || !onAutoSplitPage || readOnly) return;
+      const isLast = currentActiveIndex === pages.length - 1;
+      const status = measurePageHeight(html, isLast);
+      setCapacity({ percentage: status.percentage, isOverflowing: status.isOverflowing });
+
+      const hasExplicitBreak = html.includes('data-page-break="true"') || html.includes('class="page-break"');
+
+      if (status.isOverflowing || hasExplicitBreak) {
+        const splitResult = splitPageOverflow(html, isLast);
+        if (splitResult.overflowHtml) {
+          isSplittingRef.current = true;
+          if (editor && splitResult.fittingHtml !== editor.getHTML()) {
+            editor.commands.setContent(splitResult.fittingHtml, { emitUpdate: false });
+          }
+          onAutoSplitPage(currentActiveIndex, splitResult.fittingHtml, splitResult.overflowHtml);
+
+          if (hasExplicitBreak) {
+            onSelectPage?.(currentActiveIndex + 1);
+          }
+        }
+      }
+    },
+    [pages, onAutoSplitPage, readOnly, currentActiveIndex, onSelectPage]
+  );
 
   const editor = useEditor({
     editable: !readOnly,
@@ -127,6 +167,20 @@ export const DocumentEditor = ({
       if (onChangeHtml) {
         onChangeHtml(html);
       }
+
+      // If user inserted an explicit page break marker, split immediately
+      if (html.includes('data-page-break="true"') || html.includes('class="page-break"')) {
+        checkAndSplitOverflow(html);
+        return;
+      }
+
+      // Debounce measurement to avoid interrupting keystrokes
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        checkAndSplitOverflow(html);
+      }, 950);
     },
   });
 
@@ -136,6 +190,24 @@ export const DocumentEditor = ({
       editor.commands.setContent(activeContent, { emitUpdate: false });
     }
   }, [activeContent, editor]);
+
+  // Measure capacity when tab switches or activeContent updates
+  useEffect(() => {
+    if (pages && pages[currentActiveIndex]) {
+      const isLast = currentActiveIndex === pages.length - 1;
+      const status = measurePageHeight(pages[currentActiveIndex], isLast);
+      setCapacity({ percentage: status.percentage, isOverflowing: status.isOverflowing });
+    }
+  }, [currentActiveIndex, pages]);
+
+  // Clean up debounce timer
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className={cn('flex flex-col bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden', className)}>
@@ -185,10 +257,56 @@ export const DocumentEditor = ({
                 <span>Add Page</span>
               </button>
             )}
+
+            {onRepaginatePages && pages && pages.length > 0 && (
+              <Tooltip title="Automatically rebalance and fit all document content cleanly across A4 pages">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rebalanced = cascadeDocumentPages(pages);
+                    onRepaginatePages(rebalanced, Math.min(currentActiveIndex, rebalanced.length - 1));
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer whitespace-nowrap ml-1"
+                >
+                  <Layers className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Rebalance A4</span>
+                </button>
+              </Tooltip>
+            )}
           </div>
 
-          {/* Right: Active Page Actions */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Right: Active Page Actions & Capacity Indicator */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {capacity && (
+              <div
+                className={cn(
+                  'flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-medium tracking-tight select-none',
+                  capacity.percentage > 100
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                    : capacity.percentage > 85
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                )}
+                title={`Rendered content height is ~${capacity.percentage}% of standard A4 sheet`}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    capacity.percentage > 100
+                      ? 'bg-amber-500'
+                      : capacity.percentage > 85
+                      ? 'bg-blue-500'
+                      : 'bg-emerald-500'
+                  )}
+                />
+                <span>
+                  {capacity.percentage > 100
+                    ? `${capacity.percentage}% A4 (Auto-splitting)`
+                    : `${capacity.percentage}% A4 Full`}
+                </span>
+              </div>
+            )}
+
             <span className="text-[11px] font-semibold text-gray-500 mr-1.5">
               Page {currentActiveIndex + 1} of {pages.length}
             </span>
@@ -290,8 +408,13 @@ export const DocumentEditor = ({
               • Page {currentActiveIndex + 1} of {pages.length}
             </span>
           )}
+          {capacity && (
+            <span className="text-gray-400">
+              • {capacity.percentage}% capacity
+            </span>
+          )}
         </span>
-        <span className="text-gray-400">Press Tab inside tables to navigate cells</span>
+        <span className="text-gray-400">Content exceeding A4 automatically flows to the next page</span>
       </div>
     </div>
   );

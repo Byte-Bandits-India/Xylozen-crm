@@ -5,37 +5,57 @@ import type { DriveItem } from '@/types/drive'
 
 interface MoveItemModalProps {
   open: boolean
-  item: DriveItem | null
+  item?: DriveItem | null
+  items?: DriveItem[]
   folders: DriveItem[]
   onClose: () => void
   onMove: (id: string, targetFolderId: string, currentParentId?: string) => void
+  onMoveMultiple?: (items: DriveItem[], targetFolderId: string) => void
   loading?: boolean
 }
 
 export const MoveItemModal: React.FC<MoveItemModalProps> = ({
   open,
   item,
+  items,
   folders,
   onClose,
   onMove,
+  onMoveMultiple,
   loading,
 }) => {
   const [selectedFolderId, setSelectedFolderId] = useState<string>('root')
 
-  const availableFolders = folders.filter((f) => f.id !== item?.id)
+  // Resolve target items list
+  const activeItems: DriveItem[] = items && items.length > 0 ? items : item ? [item] : []
+  const activeItemIds = new Set(activeItems.map((it) => it.id))
+
+  // Filter out any destination folder that is currently being moved
+  const availableFolders = folders.filter((f) => !activeItemIds.has(f.id))
 
   const handleOk = () => {
-    if (item) {
-      onMove(item.id, selectedFolderId, item.parentFolderId || 'root')
+    if (activeItems.length > 1 && onMoveMultiple) {
+      onMoveMultiple(activeItems, selectedFolderId)
+    } else if (activeItems.length > 0) {
+      activeItems.forEach((it) => {
+        onMove(it.id, selectedFolderId, it.parentFolderId || 'root')
+      })
     }
   }
+
+  const titleText =
+    activeItems.length > 1
+      ? `Move ${activeItems.length} items`
+      : activeItems.length === 1
+      ? `Move "${activeItems[0].name}"`
+      : 'Move items'
 
   return (
     <Modal
       title={
         <div className="flex items-center gap-2 text-base font-semibold text-slate-800">
           <FolderOpenOutlined className="text-blue-600" />
-          <span>Move &quot;{item?.name}&quot;</span>
+          <span>{titleText}</span>
         </div>
       }
       open={open}

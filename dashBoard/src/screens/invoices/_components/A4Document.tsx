@@ -75,7 +75,7 @@ export const A4Document: React.FC<A4DocumentProps> = ({
             [&_th]:bg-[#dce8fd] [&_th]:border [&_th]:border-gray-900 [&_th]:p-2.5 [&_th]:text-[12.5px] [&_th]:font-bold [&_th]:text-gray-900 [&_th]:text-left
             [&_td]:border [&_td]:border-gray-900 [&_td]:p-2.5 [&_td]:text-[12.5px] [&_td]:text-gray-800 [&_td]:align-top"
           style={{
-            maxHeight: shouldRenderSignatory ? '780px' : '860px',
+            maxHeight: shouldRenderSignatory ? '750px' : '850px',
             overflow: 'hidden',
           }}
           dangerouslySetInnerHTML={{ __html: documentHtml }}
