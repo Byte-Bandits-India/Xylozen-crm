@@ -90,7 +90,8 @@ type SitesResponse = {
 };
 
 export default function SiteManagement() {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin: isSuperAdminRole, canEditPage } = useAuth();
+  const isSuperAdmin = isSuperAdminRole || canEditPage("site-management");
 
   const [sites, setSites] = useState<SiteEntry[]>([]);
   const [modalOpen, setModalOpen] = useState(false);

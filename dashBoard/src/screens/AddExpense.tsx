@@ -40,7 +40,8 @@ const Card = ({ title, children }: CardProps) => (
 )
 
 export default function AddExpense({ type }: AddExpenseProps) {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin: isAdminRole, canEditPage } = useAuth()
+  const isAdmin = isAdminRole || canEditPage('fixed-costs') || canEditPage('operational-costs')
   const navigate = useNavigate()
 
   const {

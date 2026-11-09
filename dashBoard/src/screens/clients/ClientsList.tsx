@@ -74,7 +74,7 @@ const avgProgress = (projects?: Client["projects"]) =>
   projects?.length ? projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.length : 0;
 
 export default function ClientsList() {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isSuperAdmin, canEditPage } = useAuth();
   const [view, setView] = useState<"list" | "form">("list");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
@@ -84,8 +84,8 @@ export default function ClientsList() {
   const [importOpen, setImportOpen] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const canEdit = isAdmin || isSuperAdmin;
-  const canDelete = isSuperAdmin;
+  const canEdit = isSuperAdmin || canEditPage("clients");
+  const canDelete = canEdit;
 
   const { data: clients = [], isLoading } = useQuery<Client[]>({
     queryKey: ["clients"],

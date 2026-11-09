@@ -12,21 +12,21 @@ import {
   updateClientProject,
   deleteClientProject,
 } from "../controllers/clientProject.controller";
-import { authMiddleware, authorize } from "../middlewares/auth.middleware";
+import { authMiddleware, requirePageEdit } from "../middlewares/auth.middleware";
 import { validate } from "../utils/validate.middleware";
 import { createClientSchema, updateClientSchema, createProjectSchema, updateProjectSchema } from "../validators/client.validator";
 
 const router = Router();
 
-router.post("/", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(createClientSchema), createClient);
+router.post("/", authMiddleware, requirePageEdit("clients"), validate(createClientSchema), createClient);
 router.get("/", authMiddleware, getClients);
 router.get("/:publicId", authMiddleware, getClientById);
-router.put("/:publicId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(updateClientSchema), updateClient);
-router.delete("/:publicId", authMiddleware, authorize(["SUPER_ADMIN"]), deleteClient);
+router.put("/:publicId", authMiddleware, requirePageEdit("clients"), validate(updateClientSchema), updateClient);
+router.delete("/:publicId", authMiddleware, requirePageEdit("clients"), deleteClient);
 
 router.get("/:publicId/projects", authMiddleware, getClientProjects);
-router.post("/:publicId/projects", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(createProjectSchema), createClientProject);
-router.put("/:publicId/projects/:projectId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(updateProjectSchema), updateClientProject);
-router.delete("/:publicId/projects/:projectId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), deleteClientProject);
+router.post("/:publicId/projects", authMiddleware, requirePageEdit("clients"), validate(createProjectSchema), createClientProject);
+router.put("/:publicId/projects/:projectId", authMiddleware, requirePageEdit("clients"), validate(updateProjectSchema), updateClientProject);
+router.delete("/:publicId/projects/:projectId", authMiddleware, requirePageEdit("clients"), deleteClientProject);
 
 export default router;

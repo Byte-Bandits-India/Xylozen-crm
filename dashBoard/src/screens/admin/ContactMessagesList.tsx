@@ -18,7 +18,7 @@ type ContactsResponse = {
 };
 
 export default function ContactMessagesList() {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, canEditPage } = useAuth();
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -28,7 +28,7 @@ export default function ContactMessagesList() {
   );
   const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
 
-  const canDelete = isSuperAdmin || isAdmin;
+  const canDelete = isSuperAdmin || isAdmin || canEditPage("contact-messages");
 
   const { data: contactsData, isLoading } = useQuery<ContactsResponse>({
     queryKey: ["contacts", currentPage, pageSize, search],

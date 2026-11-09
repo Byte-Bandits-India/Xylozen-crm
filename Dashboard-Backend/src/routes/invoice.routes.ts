@@ -9,7 +9,7 @@ import {
   recordPayment,
   getInvoicePayments,
 } from "../controllers/invoice.controller";
-import { authMiddleware, authorize } from "../middlewares/auth.middleware";
+import { authMiddleware, requirePageEdit } from "../middlewares/auth.middleware";
 import { validate } from "../utils/validate.middleware";
 import {
   createInvoiceSchema,
@@ -19,13 +19,13 @@ import {
 
 const router = Router();
 
-router.post("/", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(createInvoiceSchema), createInvoice);
+router.post("/", authMiddleware, requirePageEdit("invoices"), validate(createInvoiceSchema), createInvoice);
 router.get("/next-number", authMiddleware, getNextInvoiceNumberHandler);
 router.get("/", authMiddleware, getInvoices);
 router.get("/:publicId", authMiddleware, getInvoiceById);
-router.put("/:publicId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(updateInvoiceSchema), updateInvoice);
-router.delete("/:publicId", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), deleteInvoice);
-router.post("/:publicId/payments", authMiddleware, authorize(["SUPER_ADMIN", "ADMIN"]), validate(recordPaymentSchema), recordPayment);
+router.put("/:publicId", authMiddleware, requirePageEdit("invoices"), validate(updateInvoiceSchema), updateInvoice);
+router.delete("/:publicId", authMiddleware, requirePageEdit("invoices"), deleteInvoice);
+router.post("/:publicId/payments", authMiddleware, requirePageEdit("invoices"), validate(recordPaymentSchema), recordPayment);
 router.get("/:publicId/payments", authMiddleware, getInvoicePayments);
 
 export default router;

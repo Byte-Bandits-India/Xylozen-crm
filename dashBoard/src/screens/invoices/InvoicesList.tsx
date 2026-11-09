@@ -23,10 +23,10 @@ import { autoPaginateHtml } from './_utils/contentPaginator';
 
 export default function InvoicesList() {
   const navigate = useNavigate();
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, canEditPage } = useAuth();
   // Allow all active team members to create and edit invoices, admins can delete
   const canEdit = true;
-  const canDelete = isSuperAdmin || isAdmin;
+  const canDelete = isSuperAdmin || isAdmin || canEditPage('invoices');
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');

@@ -9,6 +9,7 @@ export interface AuthRequest extends Request {
   role?: string;
   roles?: string[];
   permissions?: string[];
+  accessiblePages?: unknown;
 }
 
 export const authMiddleware = async (
@@ -62,6 +63,7 @@ export const authMiddleware = async (
 
     req.publicId = account.publicId;
     req.email = account.email;
+    req.accessiblePages = account.accessiblePages;
     req.affiliation = account.profile?.affiliation || "internal";
     req.roles = account.roles.map((r) => r.role.name);
     req.role = req.roles[0]; // Primary role (backward compat)
@@ -102,6 +104,34 @@ export const authorize = (allowedRoles: string[]) => {
     }
 
     next();
+  };
+};
+
+/**
+ * Page-permission authorization. Admins always pass; other users need
+ * "edit" access to the page (accessiblePages entries like "clients:edit",
+ * "clients" (legacy = edit) or "*"). Later entries win, as in the frontend.
+ */
+export const requirePageEdit = (pageKeys: string | string[]) => {
+  const keys = Array.isArray(pageKeys) ? pageKeys : [pageKeys];
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    const roles = req.roles || [];
+    if (roles.includes("SUPER_ADMIN") || roles.includes("ADMIN")) return next();
+
+    const raw = req.accessiblePages;
+    const hasEdit = (pageKey: string) => {
+      let level = "none";
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
+          if (typeof item !== "string") continue;
+          if (item === "*" || item === pageKey) level = "edit";
+          else if (item.startsWith(`${pageKey}:`)) level = item.split(":")[1];
+        }
+      }
+      return level === "edit";
+    };
+    if (keys.some(hasEdit)) return next();
+    return res.status(403).json({ message: "Forbidden: you do not have edit access to this page" });
   };
 };
 
