@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -147,9 +148,14 @@ async function main() {
   ////////////////////////////////////////
   // 4. SEED ADMIN USERS ONLY
   ////////////////////////////////////////
-  console.log("🌱 Seeding Admin user accounts with password: pass@123 ...");
-  const defaultPassword = "pass@123";
-  const passwordHash = await bcrypt.hash(defaultPassword, 10);
+  const adminPhone = process.env.ADMIN_PHONE;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPhone || !adminPassword) {
+    throw new Error("ADMIN_PHONE and ADMIN_PASSWORD must be set in the environment");
+  }
+
+  console.log("🌱 Seeding Admin user account...");
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   async function createAccount(params: {
     email: string;
@@ -195,29 +201,17 @@ async function main() {
       },
     });
 
-    console.log(`  ✓ Created Admin: ${params.email} (Username: ${params.username}, Password: ${defaultPassword})`);
+    console.log(`  ✓ Created Admin: ${params.email} (Username: ${params.username}, Phone: ${params.phone})`);
     return account;
   }
 
-  // A. Primary System Admin
+  // Single System Admin (logs in with mobile number)
   await createAccount({
-    email: "admin@bytebandits.com",
-    username: "admin",
-    firstName: "Master",
-    lastName: "Admin",
-    phone: "9876543210",
-    role: "ADMIN",
-    affiliation: "internal",
-    accessiblePages: ["*"],
-  });
-
-  // B. Secondary System Admin
-  await createAccount({
-    email: "abrahambillclinton@gmail.com",
-    username: "abraham",
-    firstName: "Abraham",
-    lastName: "Clinton",
-    phone: "9876543211",
+    email: "xylozentechnologies@gmail.com",
+    username: "xylozentech",
+    firstName: "Admin",
+    lastName: "Xylozen",
+    phone: adminPhone,
     role: "ADMIN",
     affiliation: "internal",
     accessiblePages: ["*"],
@@ -225,8 +219,7 @@ async function main() {
 
   console.log("🎉 Seeding completed successfully!");
   console.log("==========================================");
-  console.log("Admin 1: admin@bytebandits.com (pass@123)");
-  console.log("Admin 2: abrahambillclinton@gmail.com (pass@123)");
+  console.log(`Admin login (mobile): ${adminPhone}`);
   console.log("==========================================");
 }
 

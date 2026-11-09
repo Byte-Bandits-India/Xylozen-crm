@@ -1,4 +1,7 @@
-import { ChevronRight } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ChevronRight, Search } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { workService } from "@/services/workService"
 import { NavUser } from "../ui/nav-user"
 import {
   Collapsible,
@@ -22,8 +25,45 @@ import { data, type NavMainItem, type NavSubItem } from "@/lib/sidebar"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 
+type TeamMember = { id: string; name: string; avatar?: string }
+
+function useDarkMode() {
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("theme") === "dark") {
+        document.documentElement.classList.add("dark")
+        setDark(true)
+      }
+    } catch {
+      /* storage unavailable */
+    }
+  }, [])
+  const toggle = () => {
+    const next = !dark
+    document.documentElement.classList.toggle("dark", next)
+    setDark(next)
+    try {
+      localStorage.setItem("theme", next ? "dark" : "light")
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  return { dark, toggle }
+}
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isAdmin, hasPageAccess, user } = useAuth()
+
+  const { dark, toggle } = useDarkMode()
+  const [query, setQuery] = useState("")
+  const [team, setTeam] = useState<TeamMember[]>([])
+  useEffect(() => {
+    workService
+      .getAssignableUsers()
+      .then((users) => setTeam(users.filter((u: any) => u.publicId !== user?.publicId) as TeamMember[]))
+      .catch(() => setTeam([]))
+  }, [user?.publicId])
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -36,27 +76,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   }
 
-  const primaryRole = user?.roles?.[0] || "USER"
-  const roleDisplay =
-    primaryRole === "ADMIN" || primaryRole === "SUPER_ADMIN"
-      ? "Administrator"
-      : primaryRole === "MANAGER"
-      ? "Team Manager"
-      : primaryRole === "INTERNAL_USER"
-      ? "Internal Staff"
-      : primaryRole === "EXTERNAL_USER"
-      ? "External Partner"
-      : "User"
-
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold text-white">Xylozen Portal</span>
-            <span className="text-xs text-white/70">{roleDisplay}</span>
-          </div>
+      <SidebarHeader className="gap-3 px-3 pt-4">
+        {user?.profile && <NavUser user={user} variant="sidebar" />}
+        <div className="flex h-11 items-center gap-3 rounded-xl bg-sidebar-accent px-3">
+          <Search className="h-5 w-5 shrink-0 text-sidebar-foreground/60" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search"
+            className="w-full bg-transparent text-sm text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60"
+          />
         </div>
+        <span className="px-2 pt-1 text-xs text-sidebar-foreground/60">Pages</span>
       </SidebarHeader>
 
       <SidebarContent>
@@ -65,6 +98,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenu className="gap-3">
             {data.navMain.map((item: NavMainItem) => {
               if (item.isAdminOnly && !isAdmin) {
+                return null
+              }
+              if (query && !item.title.toLowerCase().includes(query.toLowerCase())) {
                 return null
               }
 
@@ -146,9 +182,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             })}
           </SidebarMenu>
         </SidebarGroup>
+
+        {team.length > 0 && (
+          <SidebarGroup>
+            <div className="px-2 pb-2 text-xs text-sidebar-foreground/60">Team</div>
+            <SidebarMenu className="gap-1">
+              {team.map((m) => (
+                <SidebarMenuItem key={m.id}>
+                  <SidebarMenuButton className="h-11 gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={m.avatar || ""} alt={m.name} />
+                      <AvatarFallback>{m.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">{m.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
-        {user?.profile && <NavUser user={user} variant="sidebar" />}
+        <div className="flex items-center justify-between px-2 py-2 text-sm text-sidebar-foreground">
+          <span>Dark mode</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dark}
+            aria-label="Toggle dark mode"
+            onClick={toggle}
+            className={`relative h-6 w-11 rounded-full transition-colors ${dark ? "bg-sidebar-primary" : "bg-sidebar-foreground/20"}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${dark ? "translate-x-5" : ""}`}
+            />
+          </button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

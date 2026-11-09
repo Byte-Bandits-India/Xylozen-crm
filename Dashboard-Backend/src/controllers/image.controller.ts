@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import multer from "multer";
 import sharp from "sharp";
+import path from "path";
+import crypto from "crypto";
+import { promises as fs } from "fs";
 import { sendSuccess, sendError } from "../utils/response";
 
 // Configure Multer to store the uploaded file in memory
@@ -43,5 +46,30 @@ export const convertToWebp = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Image conversion error:", error);
     return sendError(res, "Failed to convert image", 500);
+  }
+};
+
+// Stores an uploaded image on disk (resized, WebP) and returns its public URL.
+const imagesDir = path.join(process.cwd(), "uploads", "images");
+
+export const uploadImageMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith("image/")),
+});
+
+export const saveImage = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return sendError(res, "No image file provided", 400);
+    await fs.mkdir(imagesDir, { recursive: true });
+    const filename = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.webp`;
+    await sharp(req.file.buffer)
+      .resize(512, 512, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(path.join(imagesDir, filename));
+    return sendSuccess(res, { url: `/uploads/images/${filename}` }, "Image uploaded");
+  } catch (error) {
+    console.error("Image upload error:", error);
+    return sendError(res, "Failed to upload image", 500);
   }
 };

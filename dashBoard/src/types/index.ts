@@ -77,18 +77,38 @@ export type Expense = {
 }
 
 // --- Client ---
+import type { ClientProject } from '@/screens/clients/_components/projects'
+
 export type Client = {
   id: string
+  publicId: string
+  clientType?: 'individual' | 'company'
   name: string
-  email: string
+  email?: string
   phone?: string
-  company?: string
+  whatsapp?: string
+  companyName?: string
+  avatar?: string
   status: ClientStatus
+  city?: string
+  state?: string
+  country?: string
+  timezone?: string
+  source?: string
+  sourceDetails?: Record<string, string>
+  industry?: string
+  website?: string
+  taxId?: string
+  currency?: string
+  preferredChannels?: string[]
+  language?: string
+  notes?: string
+  projects?: ClientProject[]
   createdAt: string
   updatedAt: string
 }
 
-export type ClientStatus = 'active' | 'inactive' | 'pending'
+export type ClientStatus = 'lead' | 'active' | 'on_hold' | 'past' | 'lost'
 
 // --- Invoice ---
 export type Invoice = {

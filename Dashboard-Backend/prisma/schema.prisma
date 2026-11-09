@@ -284,11 +284,14 @@ model UserProfile {
 model Client {
   id          BigInt  @id @default(autoincrement())
   publicId    String  @unique @default(uuid())
+  clientType  String  @default("individual")
   name        String
   email       String?
   phone       String?
+  whatsapp    String?
   companyName String?
   avatar      String? @db.Text
+  status      String  @default("lead")
 
   billingAddressLine1 String?
   billingAddressLine2 String?
@@ -296,6 +299,18 @@ model Client {
   state               String?
   country             String?
   postalCode          String?
+  timezone            String?
+
+  source        String?
+  sourceDetails String? @db.Text
+
+  industry String?
+  website  String?
+  taxId    String?
+  currency String?
+
+  preferredChannels String? @db.Text
+  language          String?
 
   notes     String?  @db.Text
   isActive  Boolean  @default(true)
@@ -306,10 +321,33 @@ model Client {
   createdBy         Account? @relation("CreatedClients", fields: [createdByPublicId], references: [publicId], onDelete: SetNull)
 
   invoices ClientInvoice[]
+  projects ClientProject[]
 
   @@index([name])
   @@index([email])
   @@index([createdByPublicId])
+}
+
+model ClientProject {
+  id           BigInt   @id @default(autoincrement())
+  publicId     String   @unique @default(uuid())
+  clientId     BigInt
+  name         String
+  companyName  String?
+  logoUrl      String?  @db.Text
+  status       String   @default("backlog")
+  summaryTitle String?
+  summaryText  String?  @db.Text
+  memberIds    String?  @db.Text
+  startDate    DateTime?
+  progress     Int      @default(0)
+  payment      Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 //////////////////////////////////////////////////

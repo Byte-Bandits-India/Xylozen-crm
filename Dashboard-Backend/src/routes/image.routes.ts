@@ -1,5 +1,5 @@
 import express from "express";
-import { upload, convertToWebp } from "../controllers/image.controller";
+import { upload, convertToWebp, uploadImageMemory, saveImage } from "../controllers/image.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = express.Router();
@@ -10,5 +10,7 @@ router.post(
   upload.single("image"),
   convertToWebp
 );
+
+router.post("/upload", authMiddleware, uploadImageMemory.single("image"), saveImage);
 
 export default router;

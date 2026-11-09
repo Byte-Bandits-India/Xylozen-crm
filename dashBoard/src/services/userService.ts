@@ -190,3 +190,15 @@ export const userService = {
     await userService.updateProfile({ profileImage: '' })
   },
 }
+
+/**
+ * Uploads an image file and returns its public URL (e.g. /uploads/images/x.webp).
+ */
+export async function uploadImage(file: Blob | File): Promise<string> {
+  const formData = new FormData()
+  formData.append('image', file, (file as File).name || 'image.png')
+  const res = await apiClient.post('/image/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data?.data?.url
+}

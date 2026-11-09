@@ -58,3 +58,6 @@ ehthumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Local production env (contains secrets)
+env.production

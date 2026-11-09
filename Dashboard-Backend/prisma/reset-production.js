@@ -1,3 +1,4 @@
+require("dotenv/config");
 const { PrismaClient, Prisma } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -5,6 +6,12 @@ const crypto = require("crypto");
 const prisma = new PrismaClient();
 
 async function main() {
+  const adminPhone = process.env.ADMIN_PHONE;
+  const adminPasswordPlain = process.env.ADMIN_PASSWORD;
+  if (!adminPhone || !adminPasswordPlain) {
+    throw new Error("ADMIN_PHONE and ADMIN_PASSWORD must be set in the environment");
+  }
+
   console.log("==================================================");
   console.log("🚀 PRODUCTION RESET: CLEAN DATA & PRESERVE SITES");
   console.log("==================================================");
@@ -165,7 +172,6 @@ async function main() {
   // 6. Create the single Admin User
   console.log("👤 Creating single Administrator account...");
   const adminEmail = "xylozentechnologies@gmail.com";
-  const adminPasswordPlain = "G7Z}EQY%H$^OtsR!";
   const adminPasswordHash = await bcrypt.hash(adminPasswordPlain, 12);
   const adminPublicId = crypto.randomUUID();
 
@@ -186,7 +192,7 @@ async function main() {
         create: {
           firstName: "Admin",
           lastName: "Xylozen",
-          phone: "9876543210",
+          phone: adminPhone,
           affiliation: "internal",
           functionalRole: "Operations",
         },
@@ -214,7 +220,7 @@ async function main() {
   console.log("🎉 PRODUCTION RESET COMPLETED SUCCESSFULLY!");
   console.log("==================================================");
   console.log(`Email:    ${adminEmail}`);
-  console.log(`Password: ${adminPasswordPlain}`);
+  console.log(`Mobile:   ${adminPhone}`);
   console.log(`Sites:    ${updatedSites.count} preserved`);
   console.log("==================================================");
 }
