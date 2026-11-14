@@ -9,6 +9,8 @@ import { store } from './store'
 import { queryClient } from './lib/queryClient'
 import { useAuth, AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import PrivacyPolicy from './screens/legal/PrivacyPolicy'
+import TermsOfService from './screens/legal/TermsOfService'
 import { TopNavbar } from './components/Navbar/TopNavbar'
 import { APP_PAGES, APP_REDIRECTS } from '@/config/pages.config'
 
@@ -106,9 +108,19 @@ function App() {
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <AuthProvider>
-            <AppContent />
-          </AuthProvider>
+          <Routes>
+            {/* Public pages: no authentication, not linked anywhere */}
+            <Route path="/policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route
+              path="*"
+              element={
+                <AuthProvider>
+                  <AppContent />
+                </AuthProvider>
+              }
+            />
+          </Routes>
         </Router>
       </QueryClientProvider>
     </Provider>
