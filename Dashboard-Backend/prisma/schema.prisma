@@ -739,3 +739,24 @@ model Lead {
   @@index([assignedUserId])
   @@index([createdAt])
 }
+
+//////////////////////////////////////////////////
+// GOOGLE SHEET LINKS (live sync)
+//////////////////////////////////////////////////
+model SheetLink {
+  id              BigInt    @id @default(autoincrement())
+  kind            String    @unique // e.g. "clients"
+  spreadsheetId   String
+  url             String    @db.Text
+  tab             String?
+  intervalMinutes Int       @default(15)
+  enabled         Boolean   @default(true)
+  lastSyncedAt    DateTime?
+  lastStatus      String? // "ok" | "error"
+  lastMessage     String?   @db.Text
+  lastCreated     Int       @default(0)
+  lastUpdated     Int       @default(0)
+  createdByPublicId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}

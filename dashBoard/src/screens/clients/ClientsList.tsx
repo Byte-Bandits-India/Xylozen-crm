@@ -93,6 +93,7 @@ export default function ClientsList() {
       const res = await apiClient.get("/clients?page=1&pageSize=100");
       return res.data.data || res.data || [];
     },
+    refetchInterval: 60_000, // pick up rows added by the live Google Sheet sync
   });
 
   const { data: members = [] } = useQuery<ProjectMember[]>({
@@ -207,6 +208,16 @@ export default function ClientsList() {
             <span className="text-sm text-muted-foreground">—</span>
           ),
         size: 160,
+        enableSorting: true,
+      },
+      {
+        accessorKey: "phone",
+        id: "phone",
+        header: ({ column }) => <DataGridColumnHeader title="Number" column={column} />,
+        cell: ({ row }) => (
+          <span className="text-sm text-foreground">{row.original.phone || <span className="text-muted-foreground">—</span>}</span>
+        ),
+        size: 150,
         enableSorting: true,
       },
       {
@@ -347,12 +358,12 @@ export default function ClientsList() {
 
   const tabs = useMemo(
     () => [
-      { value: "all" as const, label: "All Clients", count: clients.length },
       ...(Object.entries(CLIENT_STATUSES) as [ClientStatus, { label: string }][]).map(([value, st]) => ({
         value,
         label: st.label,
         count: clients.filter((c) => c.status === value).length,
       })),
+      { value: "all" as const, label: "All Clients", count: clients.length },
     ],
     [clients],
   );
@@ -440,7 +451,7 @@ export default function ClientsList() {
             </div>
 
             <div className="flex items-center gap-2">
-              {canEdit && (
+              {isSuperAdmin && (
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="size-4" /> Bulk Import
                 </Button>

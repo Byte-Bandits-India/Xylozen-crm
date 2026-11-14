@@ -1,6 +1,7 @@
 import app from "./app";
 import rateLimit from "express-rate-limit";
 import prisma from "./prisma/client";
+import { startSheetSyncScheduler } from "./services/clientSheetSync.service";
 
 const PORT = process.env.PORT || 4000;
 
@@ -15,6 +16,7 @@ const limiter = rateLimit({
 
 app.listen(PORT, async () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startSheetSyncScheduler();
 
   // Clean up any existing soft-deleted accounts that still retain original unique email/username
   try {

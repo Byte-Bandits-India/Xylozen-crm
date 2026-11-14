@@ -1,11 +1,23 @@
 import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog } from "radix-ui";
-import { Download, FileSpreadsheet, UploadCloud, X } from "lucide-react";
+import { Download, FileSpreadsheet, Link2, RefreshCw, UploadCloud, X } from "lucide-react";
 import { message } from "antd";
 import { apiClient } from "@/lib/apiClient";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { CLIENT_SOURCES, CLIENT_STATUSES } from "./clients";
+
+type SheetLink = {
+  url: string;
+  intervalMinutes: number;
+  enabled: boolean;
+  lastSyncedAt: string | null;
+  lastStatus: "ok" | "error" | null;
+  lastMessage: string | null;
+  lastCreated: number;
+  lastUpdated: number;
+};
 
 const HEADERS = ["name", "email", "phone", "companyName", "source", "status", "city", "country", "notes"];
 const SAMPLE_ROWS = [
@@ -63,10 +75,70 @@ export function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [mode, setMode] = useState<"csv" | "sheet">("sheet");
+  const [sheetUrl, setSheetUrl] = useState("");
 
   const reset = () => {
     setFile(null);
     setErrors([]);
+    setSheetUrl("");
+  };
+
+  const linkQuery = useQuery({
+    queryKey: ["clients-sheet-link"],
+    queryFn: async () => (await apiClient.get("/clients/sheet-link")).data?.data as SheetLink | null,
+    enabled: open,
+  });
+  const link = linkQuery.data ?? null;
+  const [interval] = useState(15);
+
+  const afterSync = (data: any) => {
+    message.success(`Synced: ${data.created} created, ${data.updated} updated`);
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
+    queryClient.invalidateQueries({ queryKey: ["clients-sheet-link"] });
+    setErrors(data.errors ?? []);
+  };
+
+  const linkSheet = async () => {
+    setBusy(true);
+    setErrors([]);
+    try {
+      const res = await apiClient.put("/clients/sheet-link", {
+        url: sheetUrl.trim(),
+        intervalMinutes: interval,
+      });
+      setSheetUrl("");
+      afterSync(res.data?.data ?? {});
+    } catch (e: any) {
+      setErrors([e?.response?.data?.message || "Failed to link Google Sheet"]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const syncNow = async () => {
+    setBusy(true);
+    setErrors([]);
+    try {
+      const res = await apiClient.post("/clients/sheet-link/sync");
+      afterSync(res.data?.data ?? {});
+    } catch (e: any) {
+      setErrors([e?.response?.data?.message || "Failed to sync"]);
+      queryClient.invalidateQueries({ queryKey: ["clients-sheet-link"] });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unlink = async () => {
+    setBusy(true);
+    try {
+      await apiClient.delete("/clients/sheet-link");
+      message.success("Sheet unlinked");
+      queryClient.invalidateQueries({ queryKey: ["clients-sheet-link"] });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const downloadTemplate = () => {
@@ -141,7 +213,7 @@ export function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpen
             <div>
               <Dialog.Title className="text-lg font-semibold">Bulk import clients</Dialog.Title>
               <Dialog.Description className="text-sm text-muted-foreground">
-                Upload a CSV file with one client per row.
+                Import clients from a Google Sheet or a CSV file, one client per row.
               </Dialog.Description>
             </div>
             <Dialog.Close className="rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Close">
@@ -149,6 +221,78 @@ export function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpen
             </Dialog.Close>
           </div>
 
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-sm font-medium">
+            {(["sheet", "csv"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setErrors([]);
+                }}
+                className={`rounded-md px-3 py-1.5 ${mode === m ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+              >
+                {m === "sheet" ? "Google Sheet" : "CSV file"}
+              </button>
+            ))}
+          </div>
+
+          {mode === "sheet" && link && (
+            <div className="space-y-3 rounded-lg border border-border p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <Link2 className="mt-0.5 size-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <a href={link.url} target="_blank" rel="noreferrer" className="block truncate font-medium text-primary hover:underline">
+                    {link.url}
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    Auto-syncs every 5 minutes ·{" "}
+                    {link.lastSyncedAt
+                      ? `last ${link.lastStatus === "error" ? "attempt failed" : "synced"} ${new Date(link.lastSyncedAt).toLocaleString()}`
+                      : "not synced yet"}
+                    {link.lastStatus === "ok" && ` (${link.lastCreated} new, ${link.lastUpdated} updated)`}
+                  </p>
+                  {link.lastStatus === "error" && link.lastMessage && (
+                    <p className="mt-1 text-xs text-destructive">{link.lastMessage}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={unlink} disabled={busy}>
+                  Unlink
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Only new leads are added. Rows whose phone number already exists in the CRM are skipped and existing
+                clients are never changed or deleted. Every row needs a phone number.
+              </p>
+            </div>
+          )}
+
+          {mode === "sheet" && !link && (
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm">
+                <Link2 className="size-4 text-muted-foreground" />
+                <input
+                  value={sheetUrl}
+                  onChange={(e) => {
+                    setSheetUrl(e.target.value);
+                    setErrors([]);
+                  }}
+                  placeholder="https://docs.google.com/spreadsheets/d/…"
+                  className="w-full bg-transparent outline-none"
+                />
+              </label>
+              <p className="text-sm">Syncs automatically every 5 minutes.</p>
+              <p className="text-xs text-muted-foreground">
+                The first tab is used; row 1 must be a header with <b>name</b> and <b>phone</b> columns (optional:{" "}
+                {HEADERS.filter((h) => h !== "name" && h !== "phone").join(", ")}). Make sure the Google account connected to the CRM can
+                open the sheet.
+              </p>
+            </div>
+          )}
+
+          {mode === "csv" && (<>
           <button
             type="button"
             onClick={downloadTemplate}
@@ -190,6 +334,7 @@ export function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpen
               }}
             />
           </div>
+          </>)}
 
           {errors.length > 0 && (
             <ul className="max-h-32 space-y-1 overflow-auto rounded-md bg-destructive/10 p-3 text-xs text-destructive">
@@ -203,9 +348,20 @@ export function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpen
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button className="!text-white" onClick={runImport} disabled={!file || busy}>
-              {busy ? "Importing…" : "Import"}
-            </Button>
+            {mode === "sheet" && link && (
+              <Button className="!text-white" onClick={syncNow} disabled={busy}>
+                <RefreshCw className="mr-1 size-3.5" /> {busy ? "Syncing…" : "Live sync"}
+              </Button>
+            )}
+            {!(mode === "sheet" && link) && (
+              <Button
+                className="!text-white"
+                onClick={mode === "sheet" ? linkSheet : runImport}
+                disabled={busy || (mode === "sheet" ? !sheetUrl.trim() : !file)}
+              >
+                {busy ? (mode === "sheet" ? "Linking…" : "Importing…") : mode === "sheet" ? "Link & sync" : "Import"}
+              </Button>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
