@@ -74,7 +74,7 @@ const avgProgress = (projects?: Client["projects"]) =>
   projects?.length ? projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.length : 0;
 
 export default function ClientsList() {
-  const { isSuperAdmin, canEditPage } = useAuth();
+  const { isAdmin, isSuperAdmin, canEditPage } = useAuth();
   const [view, setView] = useState<"list" | "form">("list");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
@@ -451,7 +451,7 @@ export default function ClientsList() {
             </div>
 
             <div className="flex items-center gap-2">
-              {isSuperAdmin && (
+              {isAdmin && (
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="size-4" /> Bulk Import
                 </Button>
